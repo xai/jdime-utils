@@ -79,8 +79,9 @@ def main():
         target = tempfile.mkdtemp(prefix="jdime.")
 
     for file in get_merged_files(revs):
-        prepare_job(target, file, revs)
-        write_job(target, file, revs)
+        if file.endswith('.java'):
+            prepare_job(target, file, revs)
+            write_job(target, file, revs)
 
 if __name__ == "__main__":
     main()
