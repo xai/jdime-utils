@@ -51,32 +51,33 @@ def main():
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
-    revs = collections.OrderedDict()
+    if args.output:
+        target = args.output
+    else:
+        target = tempfile.mkdtemp(prefix="jdime.")
 
+    revs = collections.OrderedDict()
     commits = args.commits
 
     if len(commits) is 1:
         # Only mergecommit is specified. We need to compute left and right.
         left, right = GIT['log', '--pretty=%P', '-n1',
                           commits[0]]().strip().split(' ')
+        target = os.path.join(target, commits[0])
     else:
         # Left and right are provided.
         left = commits[0]
         right = commits[1]
+        target = os.path.join(target, commits[0] + '-' + commits[1])
+
+    if os.path.exists(target):
+        eprint('Error! Directory exists: %s\nExiting.' % target)
+        sys.exit(1)
     
     revs['left'] = left
     # TODO: handle two-way merges
     revs['base'] = GIT['merge-base', left, right]().strip()
     revs['right'] = right
-
-    if args.output:
-        target = args.output
-
-        if os.path.exists(target):
-            eprint('Error! Directory exists: %s\nExiting.' % target)
-            sys.exit(1)
-    else:
-        target = tempfile.mkdtemp(prefix="jdime.")
 
     for file in get_merged_files(revs):
         if file.endswith('.java'):
