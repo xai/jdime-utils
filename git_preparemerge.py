@@ -39,9 +39,9 @@ def write_job(target, file, revs):
         inputfiles.append(os.path.join(target, rev, file))
     for strategy in STRATEGIES:
         outfile = os.path.join(target, strategy, file)
-        print('jdime -eoe -m %s -o %s %s' % (strategy,
-                                             outfile,
-                                             ' '.join(inputfiles)))
+        print('jdime -eoe -log WARNING -m %s -o %s %s' % (strategy,
+                                                          outfile,
+                                                          ' '.join(inputfiles)))
 
 def main():
     parser = argparse.ArgumentParser()
