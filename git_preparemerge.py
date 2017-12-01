@@ -4,6 +4,7 @@
 
 import argparse
 import collections
+import csv
 import os
 import sys
 import tempfile
@@ -22,7 +23,7 @@ def get_merged_files(revs):
                        revs['left'], revs['right']]().splitlines()
     return map(lambda x: x[2:], merged_files)
 
-def prepare_job(target, file, revs):
+def prepare_job(target, revs, file):
     path = os.path.dirname(file)
     
     for rev in STRATEGIES:
@@ -33,15 +34,17 @@ def prepare_job(target, file, revs):
         with open(os.path.join(target, rev, file), 'w') as targetfile:
             targetfile.write(GIT['show', commit + ":" + file]())
 
-def write_job(target, file, revs):
+def write_job(writer, target, project, revs, file):
     inputfiles = []
     for rev in revs.keys():
         inputfiles.append(os.path.join(target, rev, file))
     for strategy in STRATEGIES:
         outfile = os.path.join(target, strategy, file)
-        print('jdime -eoe -log WARNING -m %s -o %s %s' % (strategy,
+        cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (strategy,
                                                           outfile,
-                                                          ' '.join(inputfiles)))
+                                                          ' '.join(inputfiles))
+        writer.writerow([project, revs['left'], revs['right'],
+                         file, strategy, cmd])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -56,6 +59,7 @@ def main():
     else:
         target = tempfile.mkdtemp(prefix="jdime.")
 
+    project = os.path.basename(os.getcwd())
     revs = collections.OrderedDict()
     commits = args.commits
 
@@ -79,10 +83,11 @@ def main():
     revs['base'] = GIT['merge-base', left, right]().strip()
     revs['right'] = right
 
+    writer = csv.writer(sys.stdout, delimiter=';')
     for file in get_merged_files(revs):
         if file.endswith('.java'):
-            prepare_job(target, file, revs)
-            write_job(target, file, revs)
+            prepare_job(target, revs, file)
+            write_job(writer, target, project, revs, file)
 
 if __name__ == "__main__":
     main()
