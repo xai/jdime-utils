@@ -20,11 +20,14 @@ def run(job):
     right = job['right'][0:7]
     file = job['file']
     target = job['target']
+
     fail=False
+    errorlog = os.path.join(target, 'error.log')
 
     strategies = job['strategies'].split(',')
     for strategy in strategies:
-        print('%s %s %s %s %s: ' % (project, left, right, file, strategy), end='')
+        scenario = '%s %s %s %s %s' % (project, left, right, file, strategy)
+        print('%s: ' % scenario, end='')
         cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
         exe = cmd[0]
         args = cmd[1:]
@@ -35,6 +38,12 @@ def run(job):
         else:
             fail=True
             print(colors.green & colors.bold | ('FAILED (%d)' % ret))
+            with open(errorlog, 'a') as err:
+                err.write(80 * '=' + '\r\n')
+                err.write(scenario + '\r\n')
+                err.write(80 * '-' + '\r\n')
+                err.writelines(stderr + '\r\n')
+                err.write(80 * '-' + '\r\n')
 
     if not fail:
         for root, dirs, files in os.walk(target, topdown=False):
