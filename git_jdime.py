@@ -19,6 +19,9 @@ def run(job):
     left = job['left'][0:7]
     right = job['right'][0:7]
     file = job['file']
+    target = job['target']
+    fail=False
+
     strategies = job['strategies'].split(',')
     for strategy in strategies:
         print('%s %s %s %s %s: ' % (project, left, right, file, strategy), end='')
@@ -30,7 +33,17 @@ def run(job):
         if ret == 0:
             print(colors.green & colors.bold | 'OK')
         else:
+            fail=True
             print(colors.green & colors.bold | ('FAILED (%d)' % ret))
+
+    if not fail:
+        for root, dirs, files in os.walk(target, topdown=False):
+            for f in files:
+                path = os.path.join(root, f)
+                if path.endswith(file):
+                    os.remove(path)
+            if len(os.listdir(root)) == 0:
+                os.rmdir(root)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -48,7 +61,7 @@ def main():
     else:
         target = tempfile.mkdtemp(prefix="jdime.")
 
-    cols = ['project', 'left', 'right', 'file', 'strategies', 'cmd']
+    cols = ['project', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
     for job in csv.DictReader(iter(GIT['preparemerge', '-o', target,
                                        args.commits[0]]().splitlines()),
                               delimiter=';',

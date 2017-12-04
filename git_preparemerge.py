@@ -44,7 +44,7 @@ def write_job(writer, target, project, revs, file):
                                                       outfile,
                                                       ' '.join(inputfiles))
     writer.writerow([project, revs['left'], revs['right'],
-                     file, ','.join(STRATEGIES), cmd])
+                     file, ','.join(STRATEGIES), target, cmd])
 
 def main():
     parser = argparse.ArgumentParser()
