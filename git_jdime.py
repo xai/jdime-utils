@@ -7,6 +7,7 @@ import csv
 import os
 import sys
 import tempfile
+from plumbum import colors
 from plumbum import local
 
 
@@ -19,10 +20,17 @@ def run(job):
     right = job['right'][0:7]
     file = job['file']
     strategies = job['strategies'].split(',')
-    cmd = job['cmd']
     for strategy in strategies:
-        print('%s %s %s %s %s' % (project, left, right, file, strategy))
-        print(cmd.replace(STRATEGY, strategy))
+        print('%s %s %s %s %s: ' % (project, left, right, file, strategy), end='')
+        cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
+        exe = cmd[0]
+        args = cmd[1:]
+
+        ret, stdout, stderr = local[exe][args].run(retcode=None)
+        if ret == 0:
+            print(colors.green & colors.bold | 'OK')
+        else:
+            print(colors.green & colors.bold | ('FAILED (%d)' % ret))
 
 def main():
     parser = argparse.ArgumentParser()
