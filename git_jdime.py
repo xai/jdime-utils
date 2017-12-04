@@ -34,10 +34,10 @@ def run(job):
 
         ret, stdout, stderr = local[exe][args].run(retcode=None)
         if ret == 0:
-            print(colors.green & colors.bold | 'OK')
+            print(colors.green | 'OK')
         else:
             fail=True
-            print(colors.green & colors.bold | ('FAILED (%d)' % ret))
+            print(colors.red | ('FAILED (%d)' % ret))
             with open(errorlog, 'a') as err:
                 err.write(80 * '=' + '\r\n')
                 err.write(scenario + '\r\n')
