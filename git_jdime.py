@@ -41,6 +41,7 @@ def run(job):
             with open(errorlog, 'a') as err:
                 err.write(80 * '=' + '\r\n')
                 err.write(scenario + '\r\n')
+                err.write('> %s\r\n' % ' '.join(cmd))
                 err.write(80 * '-' + '\r\n')
                 err.writelines(stderr)
                 err.write(80 * '-' + '\r\n')
