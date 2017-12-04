@@ -78,5 +78,8 @@ def main():
                               fieldnames=cols):
         run(job)
 
+    if len(os.listdir(target)) == 0:
+        os.rmdir(target)
+
 if __name__ == "__main__":
     main()
