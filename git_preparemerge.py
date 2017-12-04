@@ -13,6 +13,7 @@ from plumbum import local
 
 #STRATEGIES = ['linebased', 'structured']
 STRATEGIES = ['structured']
+STRATEGY = '$$STRATEGY$$'
 GIT = local['git']
 
 def eprint(*args, **kwargs):
@@ -38,13 +39,12 @@ def write_job(writer, target, project, revs, file):
     inputfiles = []
     for rev in revs.keys():
         inputfiles.append(os.path.join(target, rev, file))
-    for strategy in STRATEGIES:
-        outfile = os.path.join(target, strategy, file)
-        cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (strategy,
-                                                          outfile,
-                                                          ' '.join(inputfiles))
-        writer.writerow([project, revs['left'], revs['right'],
-                         file, strategy, cmd])
+    outfile = os.path.join(target, STRATEGY, file)
+    cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (STRATEGY,
+                                                      outfile,
+                                                      ' '.join(inputfiles))
+    writer.writerow([project, revs['left'], revs['right'],
+                     file, ','.join(STRATEGIES), cmd])
 
 def main():
     parser = argparse.ArgumentParser()

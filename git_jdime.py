@@ -11,14 +11,18 @@ from plumbum import local
 
 
 GIT = local['git']
+STRATEGY = '$$STRATEGY$$'
 
 def run(job):
     project = job['project']
     left = job['left'][0:7]
     right = job['right'][0:7]
-    file= job['file']
-    strategy= job['strategy']
-    print('%s %s %s %s %s' % (project, left, right, file, strategy))
+    file = job['file']
+    strategies = job['strategies'].split(',')
+    cmd = job['cmd']
+    for strategy in strategies:
+        print('%s %s %s %s %s' % (project, left, right, file, strategy))
+        print(cmd.replace(STRATEGY, strategy))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,8 +39,8 @@ def main():
         target = args.output
     else:
         target = tempfile.mkdtemp(prefix="jdime.")
-    
-    cols = ['project', 'left', 'right', 'file', 'strategy', 'cmd']
+
+    cols = ['project', 'left', 'right', 'file', 'strategies', 'cmd']
     for job in csv.DictReader(iter(GIT['preparemerge', '-o', target,
                                        args.commits[0]]().splitlines()),
                               delimiter=';',
