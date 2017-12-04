@@ -42,7 +42,7 @@ def run(job):
                 err.write(80 * '=' + '\r\n')
                 err.write(scenario + '\r\n')
                 err.write(80 * '-' + '\r\n')
-                err.writelines(stderr + '\r\n')
+                err.writelines(stderr)
                 err.write(80 * '-' + '\r\n')
 
     if not fail:
