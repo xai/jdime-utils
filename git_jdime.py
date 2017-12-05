@@ -14,14 +14,14 @@ from plumbum import local
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
 
-def run(job):
+def run(job, prune):
     project = job['project']
     left = job['left'][0:7]
     right = job['right'][0:7]
     file = job['file']
     target = job['target']
 
-    fail=False
+    fail = False
     errorlog = os.path.join(target, 'error.log')
 
     strategies = job['strategies'].split(',')
@@ -36,7 +36,7 @@ def run(job):
         if ret == 0:
             print(colors.green | 'OK')
         else:
-            fail=True
+            fail = True
             print(colors.red | ('FAILED (%d)' % ret))
             with open(errorlog, 'a') as err:
                 err.write(80 * '=' + '\r\n')
@@ -46,13 +46,13 @@ def run(job):
                 err.writelines(stderr)
                 err.write(80 * '-' + '\r\n')
 
-    if not fail:
+    if prune and not fail:
         for root, dirs, files in os.walk(target, topdown=False):
             for f in files:
                 path = os.path.join(root, f)
                 if path.endswith(file):
                     os.remove(path)
-            if len(os.listdir(root)) == 0:
+            if not os.listdir(root):
                 os.rmdir(root)
 
 def main():
@@ -71,14 +71,15 @@ def main():
     else:
         target = tempfile.mkdtemp(prefix="jdime.")
 
+    commits = args.commits
     cols = ['project', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
     for job in csv.DictReader(iter(GIT['preparemerge', '-o', target,
-                                       args.commits[0]]().splitlines()),
+                                       commits]().splitlines()),
                               delimiter=';',
                               fieldnames=cols):
-        run(job)
+        run(job, args.prune)
 
-    if len(os.listdir(target)) == 0:
+    if args.prune and not os.listdir(target):
         os.rmdir(target)
 
 if __name__ == "__main__":
