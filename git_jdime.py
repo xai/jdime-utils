@@ -5,7 +5,6 @@
 import argparse
 import csv
 import os
-import sys
 import tempfile
 from plumbum import colors
 from plumbum import local
@@ -13,6 +12,14 @@ from plumbum import local
 
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
+COLS = ['project', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
+
+def get_merge_commits():
+    return GIT['rev-list', '--all', '--merges']().splitlines()
+
+def get_jobs(target, commits):
+    return csv.DictReader(iter(GIT['preparemerge', '-o', target, commits]()\
+                               .splitlines()), delimiter=';', fieldnames=COLS)
 
 def run(job, prune):
     project = job['project']
@@ -72,12 +79,14 @@ def main():
         target = tempfile.mkdtemp(prefix="jdime.")
 
     commits = args.commits
-    cols = ['project', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
-    for job in csv.DictReader(iter(GIT['preparemerge', '-o', target,
-                                       commits]().splitlines()),
-                              delimiter=';',
-                              fieldnames=cols):
-        run(job, args.prune)
+
+    if len(commits) == 1 and commits[0] == 'all':
+        for commit in get_merge_commits():
+            for job in get_jobs(target, [commit,]):
+                run(job, args.prune)
+    else:
+        for job in get_jobs(target, commits):
+            run(job, args.prune)
 
     if args.prune and not os.listdir(target):
         os.rmdir(target)
