@@ -90,6 +90,13 @@ def main():
 
     if args.prune and not os.listdir(target):
         os.rmdir(target)
+    else:
+        print()
+        if args.prune:
+            stored = 'Erroneous'
+        else:
+            stored = 'All'
+        print('%s merge scenarios have been stored to %s' % (stored, target))
 
 if __name__ == "__main__":
     main()
