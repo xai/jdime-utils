@@ -85,7 +85,6 @@ def main():
         sys.exit(1)
     
     revs['left'] = left
-    # TODO: handle two-way merges
     revs['base'] = GIT['merge-base', left, right]().strip()
     revs['right'] = right
 
