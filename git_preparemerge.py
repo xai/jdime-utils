@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 from plumbum import local
+from plumbum.commands.processes import ProcessExecutionError
 
 
 #STRATEGIES = ['linebased', 'structured']
@@ -32,13 +33,18 @@ def prepare_job(target, revs, file):
     
     for rev, commit in revs.items():
         os.makedirs(os.path.join(target, rev, path), exist_ok=True)
-        with open(os.path.join(target, rev, file), 'w') as targetfile:
-            targetfile.write(GIT['show', commit + ":" + file]())
+        try:
+            with open(os.path.join(target, rev, file), 'w') as targetfile:
+                targetfile.write(GIT['show', commit + ":" + file]())
+        except ProcessExecutionError:
+            os.remove(os.path.join(target, rev, file))
 
 def write_job(writer, target, project, revs, file):
     inputfiles = []
     for rev in revs.keys():
-        inputfiles.append(os.path.join(target, rev, file))
+        inputfile = os.path.join(target, rev, file)
+        if rev != 'base' or os.path.exists(inputfile):
+            inputfiles.append(inputfile)
     outfile = os.path.join(target, STRATEGY, file)
     cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (STRATEGY,
                                                       outfile,
