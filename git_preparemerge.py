@@ -85,8 +85,11 @@ def main():
         sys.exit(1)
     
     revs['left'] = left
-    # TODO: handle two-way merges
-    revs['base'] = GIT['merge-base', left, right]().strip()
+    try:
+        revs['base'] = GIT['merge-base', left, right]().strip()
+    except ProcessExecutionError:
+        # two-way merge
+        pass
     revs['right'] = right
 
     writer = csv.writer(sys.stdout, delimiter=';')
