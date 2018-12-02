@@ -8,6 +8,8 @@ import os
 import tempfile
 from plumbum import colors
 from plumbum import local
+from plumbum.cmd import grep
+from plumbum.commands.processes import ProcessExecutionError
 
 
 GIT = local['git']
@@ -20,6 +22,16 @@ def get_merge_commits():
 def get_jobs(target, commits):
     return csv.DictReader(iter(GIT['preparemerge', '-o', target, commits]()\
                                .splitlines()), delimiter=';', fieldnames=COLS)
+
+def count_conflicts(merged_file):
+    conflicts = 0
+
+    try:
+        conflicts = int(grep['-c', '-e', '^<<<<<<<', merged_file]().strip())
+    except ProcessExecutionError:
+        pass
+
+    return conflicts
 
 def run(job, prune, srcfile=None):
     project = job['project']
@@ -39,10 +51,16 @@ def run(job, prune, srcfile=None):
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
+            outfile = args[6]
 
             ret, stdout, stderr = local[exe][args].run(retcode=None)
+
             if ret == 0:
-                print(colors.green | 'OK')
+                conflicts = count_conflicts(outfile)
+                if conflicts > 0:
+                    print(colors.cyan | ('OK (%d conflicts)' % conflicts))
+                else:
+                    print(colors.green | 'OK')
             else:
                 fail = True
                 print(colors.red | ('FAILED (%d)' % ret))
