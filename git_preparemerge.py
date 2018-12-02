@@ -71,8 +71,12 @@ def main():
 
     if len(commits) is 1:
         # Only mergecommit is specified. We need to compute left and right.
-        left, right = GIT['log', '--pretty=%P', '-n1',
-                          commits[0]]().strip().split(' ')
+        try:
+            left, right = GIT['log', '--pretty=%P', '-n1',
+                              commits[0]]().strip().split(' ')
+        except ValueError:
+            # octopus are merges not supported by us
+            sys.exit(0)
         target = os.path.join(target, commits[0])
     else:
         # Left and right are provided.
