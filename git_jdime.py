@@ -5,6 +5,7 @@
 import argparse
 import csv
 import os
+import sys
 import tempfile
 from plumbum import colors
 from plumbum import local
@@ -33,7 +34,7 @@ def count_conflicts(merged_file):
 
     return conflicts
 
-def run(job, prune, srcfile=None):
+def run(job, prune, writer, srcfile=None):
     project = job['project']
     left = job['left'][0:7]
     right = job['right'][0:7]
@@ -47,7 +48,8 @@ def run(job, prune, srcfile=None):
         strategies = job['strategies'].split(',')
         for strategy in strategies:
             scenario = '%s %s %s %s %s' % (project, left, right, file, strategy)
-            print('%s: ' % scenario, end='')
+            if not writer:
+                print('%s: ' % scenario, end='')
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
@@ -57,13 +59,18 @@ def run(job, prune, srcfile=None):
 
             if ret == 0:
                 conflicts = count_conflicts(outfile)
-                if conflicts > 0:
-                    print(colors.cyan | ('OK (%d conflicts)' % conflicts))
+                if not writer:
+                    if conflicts > 0:
+                        print(colors.cyan | ('OK (%d conflicts)' % conflicts))
+                    else:
+                        print(colors.green | 'OK')
                 else:
-                    print(colors.green | 'OK')
+                    writer.writerow([project, left, right, file, strategy,
+                                     conflicts])
             else:
                 fail = True
-                print(colors.red | ('FAILED (%d)' % ret))
+                if not writer:
+                    print(colors.red | ('FAILED (%d)' % ret))
                 with open(errorlog, 'a') as err:
                     err.write(80 * '=' + '\r\n')
                     err.write(scenario + '\r\n')
@@ -92,8 +99,15 @@ def main():
     parser.add_argument('-p', '--prune',
                         help='Prune successfully merged scenarios',
                         action="store_true")
+    parser.add_argument('-c', '--csv',
+                        help='Print in csv format',
+                        action="store_true")
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
+
+    writer = None
+    if args.csv:
+        writer = csv.writer(sys.stdout, delimiter=';')
 
     if args.output:
         target = args.output
@@ -105,10 +119,10 @@ def main():
     if len(commits) == 1 and commits[0] == 'all':
         for commit in get_merge_commits():
             for job in get_jobs(target, [commit,]):
-                run(job, args.prune, args.file)
+                run(job, args.prune, writer, args.file)
     else:
         for job in get_jobs(target, commits):
-            run(job, args.prune, args.file)
+            run(job, args.prune, writer, args.file)
 
     if args.prune and not os.listdir(target):
         os.rmdir(target)
