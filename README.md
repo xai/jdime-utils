@@ -1,5 +1,5 @@
 # jdime-utils
-A collection of utilities around JDime
+A collection of utilities and small scripts around JDime
 
 # Install
 Assuming that `$HOME/bin` is in your `$PATH`:  
