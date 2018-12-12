@@ -126,7 +126,7 @@ def main():
 
     if args.prune and not os.listdir(target):
         os.rmdir(target)
-    else:
+    elif not args.csv:
         print()
         if args.prune:
             stored = 'Erroneous'
