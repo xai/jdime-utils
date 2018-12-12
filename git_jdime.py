@@ -48,8 +48,6 @@ def run(job, prune, writer, srcfile=None):
         strategies = job['strategies'].split(',')
         for strategy in strategies:
             scenario = '%s %s %s %s %s' % (project, left, right, file, strategy)
-            if not writer:
-                print('%s: ' % scenario, end='')
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
@@ -60,6 +58,7 @@ def run(job, prune, writer, srcfile=None):
             if ret == 0:
                 conflicts = count_conflicts(outfile)
                 if not writer:
+                    print('%s: ' % scenario, end='')
                     if conflicts > 0:
                         print(colors.cyan | ('OK (%d conflicts)' % conflicts))
                     else:
@@ -69,8 +68,8 @@ def run(job, prune, writer, srcfile=None):
                                      conflicts])
             else:
                 fail = True
-                if not writer:
-                    print(colors.red | ('FAILED (%d)' % ret))
+                print('%s: ' % scenario, end='', file=sys.stderr)
+                print(colors.red | ('FAILED (%d)' % ret), file=sys.stderr)
                 with open(errorlog, 'a') as err:
                     err.write(80 * '=' + '\r\n')
                     err.write(scenario + '\r\n')
