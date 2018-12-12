@@ -8,8 +8,12 @@ for url in $(cat $PROJECTS); do
 	cd $REPOS
 	repo=$(echo "$url" | cut -d'/' -f5)
 	if [ ! -d ${repo}/.git ]; then
-		git clone -q $url || continue
+		if ( curl -sI $url | egrep -q '^Status: 200 OK' ); then
+			git clone -q $url
+		fi
 	fi
-	cd ${repo} || continue
-	git jdime -o $TMPDIR -p all -c | tee ${CSV}/${repo}.csv
+	if [ -d ${repo} ]; then
+		cd ${repo}
+		git jdime -o $TMPDIR -p all -c | tee ${CSV}/${repo}.csv
+	fi
 done
