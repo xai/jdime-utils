@@ -13,7 +13,7 @@ def colorize(row):
                               row['file'], row['strategy'])
     print('%s: ' % scenario, end='')
     if int(row['conflicts']) > 0:
-        print(colors.cyan | ('OK (%d conflicts)' % conflicts))
+        print(colors.cyan | ('OK (%d conflicts)' % int(row['conflicts'])))
     else:
         print(colors.green | 'OK')
 
