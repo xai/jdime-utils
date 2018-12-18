@@ -1,6 +1,11 @@
 # jdime-utils
 A collection of utilities and small scripts around JDime
 
+# Requirements
+* [plumbum](https://plumbum.readthedocs.io/en/latest/): `pip3 install --user plumbum`
+* git
+* [jdime](https://github.com/xai/jdime) (preferrably develop branch)
+
 # Install
 Assuming that `$HOME/bin` is in your `$PATH`:  
 `ln -s git_preparemerge.py $HOME/bin/git-preparemerge`  
