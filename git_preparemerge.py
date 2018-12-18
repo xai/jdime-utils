@@ -13,7 +13,7 @@ from plumbum.commands.processes import ProcessExecutionError
 
 
 #STRATEGIES = ['linebased', 'structured']
-STRATEGIES = ['structured']
+STRATEGIES = ['linebased']
 STRATEGY = '$$STRATEGY$$'
 GIT = local['git']
 
