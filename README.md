@@ -8,6 +8,10 @@ Assuming that `$HOME/bin` is in your `$PATH`:
 
 Please ensure that `jdime` is in your `$PATH` as well.
 
+# Config
+To specify which strategies should be used, edit the respective list
+in the config section at the beginning of `git_preparemerge.py`.
+
 # Use
 To run jdime with these scripts on merge commits of a git repository, 
 `cd` into the workdir of the repository.
@@ -31,4 +35,5 @@ optional arguments:
                         Store output in this directory
   -f FILE, --file FILE  Merge only specified file
   -p, --prune           Prune successfully merged scenarios
+  -c, --csv             Print in csv format
   ```
