@@ -12,8 +12,15 @@ from plumbum import local
 from plumbum.commands.processes import ProcessExecutionError
 
 
-#STRATEGIES = ['linebased', 'structured']
+###############################################################################
+# <CONFIG>
+
+# example: STRATEGIES = ['linebased', 'structured']
 STRATEGIES = ['linebased']
+
+# </CONFIG>
+###############################################################################
+
 STRATEGY = '$$STRATEGY$$'
 GIT = local['git']
 
