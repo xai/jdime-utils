@@ -1,12 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 PROJECTS="$HOME/projects"
 REPOS="$HOME/repos"
 CSV="$HOME/csv"
 TMPDIR="/tmp/jdime"
 
-SCRIPTS="$(dirname $(realpath $0))"
+SCRIPTS="$(dirname $(readlink -f $0))"
 
 for url in $(cat $PROJECTS); do
+	url=$(echo "$url" | sed -e 's/http:/https:/')
 	cd $REPOS
 	repo=$(echo "$url" | cut -d'/' -f5)
 	if [ ! -d ${repo}/.git ]; then
