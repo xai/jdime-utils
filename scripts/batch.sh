@@ -10,8 +10,13 @@ for url in $(cat $PROJECTS); do
 	cd $REPOS
 	repo=$(echo "$url" | cut -d'/' -f5)
 	if [ ! -d ${repo}/.git ]; then
-		if ( curl -sI $url | egrep -q '^Status: 200 OK' ); then
-			git clone -q $url
+		header=$(curl -sI $url)
+		while ( echo "$header" | egrep -q '^Status: 301 ' ); do
+			url=$(echo "$header" | egrep '^Location: ' | awk -F': ' '{ print $2 }')
+			header=$(curl -sI $url)
+		done
+		if ( echo "$header" | egrep -q '^Status: 200 OK' ); then
+			git clone -q $url $repo
 		fi
 	fi
 	if [ -d ${repo} ]; then
