@@ -12,11 +12,14 @@ for url in $(cat $PROJECTS); do
 	repo=$(echo "$url" | cut -d'/' -f5)
 	if [ ! -d ${repo}/.git ]; then
 		header=$(curl -sI $url)
+		echo "Trying to fetch url: $url" 1>&2
 		while ( echo "$header" | egrep -q '^Status: 301 ' ); do
-			url=$(echo "$header" | egrep '^Location: ' | awk -F': ' '{ print $2 }')
+			url="$(echo "$header" | egrep '^Location: ' | sed -e 's/Location: //' -e 's/\r//')"
+			echo "Project has moved to new location: $url" 1>&2
 			header=$(curl -sI $url)
 		done
 		if ( echo "$header" | egrep -q '^Status: 200 OK' ); then
+			echo "git clone -q $url $repo" 1>&2
 			git clone -q $url $repo
 		fi
 	fi
