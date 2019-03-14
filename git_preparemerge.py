@@ -16,7 +16,9 @@ from plumbum.commands.processes import ProcessExecutionError
 # <CONFIG>
 
 # example: STRATEGIES = ['linebased', 'structured']
-STRATEGIES = ['linebased']
+#STRATEGIES = ['linebased', 'structured', 'semistructured', 'linebased,structured', 'linebased,semistructured,structured']
+STRATEGIES = ['linebased', 'semistructured', 'structured']
+#STRATEGIES = ['linebased']
 
 # </CONFIG>
 ###############################################################################
@@ -34,11 +36,14 @@ def get_merged_files(revs):
 
 def prepare_job(target, revs, file):
     path = os.path.dirname(file)
-    
+
     for rev in STRATEGIES:
         os.makedirs(os.path.join(target, rev, path), exist_ok=True)
-    
+
     for rev, commit in revs.items():
+        if rev == 'merge':
+            continue
+
         os.makedirs(os.path.join(target, rev, path), exist_ok=True)
         try:
             with open(os.path.join(target, rev, file), 'w') as targetfile:
@@ -49,6 +54,9 @@ def prepare_job(target, revs, file):
 def write_job(writer, target, project, revs, file):
     inputfiles = []
     for rev in revs.keys():
+        if rev == 'merge':
+            continue
+
         inputfile = os.path.join(target, rev, file)
         if rev != 'base' or os.path.exists(inputfile):
             inputfiles.append(inputfile)
@@ -56,7 +64,7 @@ def write_job(writer, target, project, revs, file):
     cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (STRATEGY,
                                                       outfile,
                                                       ' '.join(inputfiles))
-    writer.writerow([project, revs['left'], revs['right'],
+    writer.writerow([project, revs['merge'], revs['left'], revs['right'],
                      file, ','.join(STRATEGIES), target, cmd])
 
 def main():
@@ -64,6 +72,9 @@ def main():
     parser.add_argument('-o', '--output',
                         help='Store output in this directory',
                         type=str)
+    parser.add_argument('-n', '--noop',
+                        help='Do not actually run',
+                        action="store_true")
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
@@ -78,23 +89,35 @@ def main():
 
     if len(commits) is 1:
         # Only mergecommit is specified. We need to compute left and right.
+        mergecommit = GIT['rev-parse', commits[0]]().strip()
         try:
             left, right = GIT['log', '--pretty=%P', '-n1',
-                              commits[0]]().strip().split(' ')
+                              mergecommit]().strip().split(' ')
         except ValueError:
             # octopus are merges not supported by us
             sys.exit(0)
         target = os.path.join(target, commits[0])
     else:
-        # Left and right are provided.
-        left = commits[0]
-        right = commits[1]
+        # Left and right are provided. Need to find merge commit.
+        # TODO: it would be really great if this was easier
+        left = GIT['rev-parse', commits[0]]().strip()
+        right = GIT['rev-parse', commits[1]]().strip()
+        mergecommit = None
+        for line in GIT['log', '--pretty=%H %P', '--all']().splitlines():
+            scenario = line.strip().split(' ')
+            if len(scenario) != 3:
+                continue
+            if scenario[1] == left and scenario[2] == right:
+                mergecommit = scenario[0]
+                break
+        assert mergecommit is not None
         target = os.path.join(target, commits[0] + '-' + commits[1])
 
     if os.path.exists(target):
         eprint('Error! Directory exists: %s\nExiting.' % target)
         sys.exit(1)
-    
+
+    revs['merge'] = mergecommit
     revs['left'] = left
     try:
         revs['base'] = GIT['merge-base', left, right]().strip()
@@ -106,7 +129,8 @@ def main():
     writer = csv.writer(sys.stdout, delimiter=';')
     for file in get_merged_files(revs):
         if file.endswith('.java'):
-            prepare_job(target, revs, file)
+            if not args.noop:
+                prepare_job(target, revs, file)
             write_job(writer, target, project, revs, file)
 
 if __name__ == "__main__":

@@ -15,13 +15,16 @@ from plumbum.commands.processes import ProcessExecutionError
 
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
-COLS = ['project', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
+COLS = ['project', 'merge', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
 
 def get_merge_commits():
     return GIT['rev-list', '--all', '--merges']().splitlines()
 
-def get_jobs(target, commits):
-    return csv.DictReader(iter(GIT['preparemerge', '-o', target, commits]()\
+def get_jobs(target, noop=False, commits=[]):
+    options = ["-o", target]
+    if noop:
+        options.append("-n")
+    return csv.DictReader(iter(GIT['preparemerge', options, commits]()\
                                .splitlines()), delimiter=';', fieldnames=COLS)
 
 def count_conflicts(merged_file):
@@ -34,8 +37,15 @@ def count_conflicts(merged_file):
 
     return conflicts
 
-def run(job, prune, writer, srcfile=None):
+def run(job, prune, writer, srcfile=None, noop=False):
+
+    if noop:
+        writer = csv.DictWriter(sys.stdout, delimiter=';', fieldnames=COLS)
+        writer.writerow(job)
+        return
+
     project = job['project']
+    mergecommit = job['merge'][0:7]
     left = job['left'][0:7]
     right = job['right'][0:7]
     file = job['file']
@@ -47,7 +57,7 @@ def run(job, prune, writer, srcfile=None):
         errorlog = os.path.join(target, 'error.log')
         strategies = job['strategies'].split(',')
         for strategy in strategies:
-            scenario = '%s %s %s %s %s' % (project, left, right, file, strategy)
+            scenario = '%s %s %s %s %s %s' % (project, mergecommit, left, right, file, strategy)
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
@@ -64,7 +74,7 @@ def run(job, prune, writer, srcfile=None):
                     else:
                         print(colors.green | 'OK')
                 else:
-                    writer.writerow([project, left, right, file, strategy,
+                    writer.writerow([project, mergecommit, left, right, file, strategy,
                                      conflicts])
             else:
                 fail = True
@@ -101,6 +111,9 @@ def main():
     parser.add_argument('-c', '--csv',
                         help='Print in csv format',
                         action="store_true")
+    parser.add_argument('-n', '--noop',
+                        help='Do not actually run',
+                        action="store_true")
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
@@ -117,11 +130,11 @@ def main():
 
     if len(commits) == 1 and commits[0] == 'all':
         for commit in get_merge_commits():
-            for job in get_jobs(target, [commit,]):
-                run(job, args.prune, writer, args.file)
+            for job in get_jobs(target, args.noop, [commit,]):
+                run(job, args.prune, writer, args.file, args.noop)
     else:
-        for job in get_jobs(target, commits):
-            run(job, args.prune, writer, args.file)
+        for job in get_jobs(target, args.noop, commits):
+            run(job, args.prune, writer, args.file, args.noop)
 
     if args.prune and not os.listdir(target):
         os.rmdir(target)
