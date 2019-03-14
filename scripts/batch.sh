@@ -3,6 +3,7 @@ PROJECTS="$HOME/projects"
 REPOS="$HOME/repos"
 CSV="$HOME/csv"
 TMPDIR="/tmp/jdime"
+STATEDIR="$HOME/state"
 
 SCRIPTS="$(dirname $(readlink -f $0))"
 
@@ -25,6 +26,6 @@ for url in $(cat $PROJECTS); do
 	fi
 	if [ -d ${repo} ]; then
 		cd ${repo}
-		git jdime -o $TMPDIR -p all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
+		git jdime -o $TMPDIR -s $STATEDIR -p all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
 	fi
 done

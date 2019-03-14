@@ -20,10 +20,13 @@ COLS = ['project', 'merge', 'left', 'right', 'file', 'strategies', 'target', 'cm
 def get_merge_commits():
     return GIT['rev-list', '--all', '--merges']().splitlines()
 
-def get_jobs(target, noop=False, commits=[]):
+def get_jobs(target, noop=False, statedir=None, commits=[]):
     options = ["-o", target]
     if noop:
         options.append("-n")
+    if statedir:
+        options.append("-s")
+        options.append(statedir)
     return csv.DictReader(iter(GIT['preparemerge', options, commits]()\
                                .splitlines()), delimiter=';', fieldnames=COLS)
 
@@ -97,6 +100,15 @@ def run(job, prune, writer, srcfile=None, noop=False):
             if not os.listdir(root):
                 os.rmdir(root)
 
+def write_state(job, statedir):
+    if statedir:
+        with open(os.path.join(statedir, job['project']), 'a') as f:
+            statewriter = csv.writer(f, delimiter=';')
+            for strategy in job['strategies'].split(','):
+                statewriter.writerow([job['project'],
+                                      job['merge'],
+                                      strategy])
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--output',
@@ -114,6 +126,9 @@ def main():
     parser.add_argument('-n', '--noop',
                         help='Do not actually run',
                         action="store_true")
+    parser.add_argument('-s', '--statedir',
+                        help='Use state files to skip completed tasks',
+                        type=str)
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
@@ -126,17 +141,23 @@ def main():
     else:
         target = tempfile.mkdtemp(prefix="jdime.")
 
+    if args.statedir:
+        if not os.path.exists(args.statedir):
+            os.makedirs(args.statedir)
+
     commits = args.commits
 
     if len(commits) == 1 and commits[0] == 'all':
         for commit in get_merge_commits():
-            for job in get_jobs(target, args.noop, [commit,]):
+            for job in get_jobs(target, args.noop, args.statedir, [commit,]):
                 run(job, args.prune, writer, args.file, args.noop)
+                write_state(job, args.statedir)
     else:
-        for job in get_jobs(target, args.noop, commits):
+        for job in get_jobs(target, args.noop, args.statedir, commits):
             run(job, args.prune, writer, args.file, args.noop)
+            write_state(job, args.statedir)
 
-    if args.prune and not os.listdir(target):
+    if args.prune and os.path.exists(target) and not os.listdir(target):
         os.rmdir(target)
     elif not args.csv:
         print()

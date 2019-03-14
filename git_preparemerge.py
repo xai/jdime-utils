@@ -75,6 +75,9 @@ def main():
     parser.add_argument('-n', '--noop',
                         help='Do not actually run',
                         action="store_true")
+    parser.add_argument('-s', '--statedir',
+                        help='Use state files to skip completed tasks',
+                        type=str)
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
@@ -86,6 +89,13 @@ def main():
     project = os.path.basename(os.getcwd())
     revs = collections.OrderedDict()
     commits = args.commits
+
+    state=None
+    if args.statedir:
+        statedir = args.statedir
+        if not os.path.exists(statedir):
+            os.makedirs(statedir)
+        state = os.path.join(statedir, project)
 
     if len(commits) is 1:
         # Only mergecommit is specified. We need to compute left and right.
@@ -116,6 +126,18 @@ def main():
     if os.path.exists(target):
         eprint('Error! Directory exists: %s\nExiting.' % target)
         sys.exit(1)
+
+    if state and os.path.isfile(state):
+        with open(state, 'r') as f:
+            for task in csv.DictReader(f, delimiter=';', fieldnames=['project',
+                                                                     'merge',
+                                                                     'strategy']):
+                if task['merge'] == mergecommit:
+                    if task['strategy'] in STRATEGIES:
+                        STRATEGIES.remove(task['strategy'])
+
+    if len(STRATEGIES) == 0:
+        return
 
     revs['merge'] = mergecommit
     revs['left'] = left
