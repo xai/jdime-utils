@@ -9,10 +9,21 @@ A collection of utilities and small scripts around JDime
 
 # Install
 Assuming that `$HOME/bin` is in your `$PATH`:  
-`ln -s git_preparemerge.py $HOME/bin/git-preparemerge`  
-`ln -s git_jdime.py $HOME/bin/git-jdime`  
+`ln -s $(readlink -f git_preparemerge.py) $HOME/bin/git-preparemerge`  
+`ln -s $(readlink -f git_jdime.py) $HOME/bin/git-jdime`  
 
-Please ensure that `jdime` is in your `$PATH` as well.
+Please ensure that `jdime` is in your `$PATH` as well.  
+My personal way to install jdime is this:
+```
+git clone https://github.com/xai/jdime
+git clone https://gitlab.infosun.fim.uni-passau.de/seibt/JNativeMerge
+cd jdime
+git checkout develop
+mkdir $HOME/opt
+make install
+echo "#!/bin/sh" >> $HOME/bin/jdime
+echo "$HOME/opt/JDime/bin/JDime $@" >> $HOME/bin/jdime
+```
 
 # Config
 To specify which strategies should be used, edit the respective list
