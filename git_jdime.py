@@ -20,8 +20,11 @@ COLS = ['project', 'merge', 'left', 'right', 'file', 'strategies', 'target', 'cm
 def get_merge_commits():
     return GIT['rev-list', '--all', '--merges']().splitlines()
 
-def get_jobs(target, noop=False, statedir=None, commits=[]):
+def get_jobs(target, strategies=None, noop=False, statedir=None, commits=[]):
     options = ["-o", target]
+    if strategies:
+        options.append("-m")
+        options.append(','.join(strategies))
     if noop:
         options.append("-n")
     if statedir:
@@ -100,13 +103,26 @@ def run(job, prune, writer, srcfile=None, noop=False):
             if not os.listdir(root):
                 os.rmdir(root)
 
-def write_state(job, statedir):
+def write_state(project, commit, strategies, statedir):
     if statedir:
-        with open(os.path.join(statedir, job['project']), 'a') as f:
+        statefile = os.path.join(statedir, project)
+        if os.path.exists(statefile):
+            with open(statefile, 'r') as f:
+                for done in csv.DictReader(f, delimiter=';', fieldnames=['project',
+                                                                         'commit',
+                                                                         'strategy']):
+                    if project == done['project'] and commit == done['commit']:
+                        if done['strategy'] in strategies:
+                            strategies.remove(done['strategy'])
+                            if len(strategies) == 0:
+                                return
+
+
+        with open(statefile, 'a') as f:
             statewriter = csv.writer(f, delimiter=';')
-            for strategy in job['strategies'].split(','):
-                statewriter.writerow([job['project'],
-                                      job['merge'],
+            for strategy in strategies:
+                statewriter.writerow([project,
+                                      commit,
                                       strategy])
 
 def main():
@@ -114,6 +130,10 @@ def main():
     parser.add_argument('-o', '--output',
                         help='Store output in this directory',
                         type=str)
+    parser.add_argument('-m', '--modes',
+                        help='Strategies to be prepared, separated by comma',
+                        type=str,
+                        default='structured,linebased')
     parser.add_argument('-f', '--file',
                         help='Merge only specified file',
                         type=str)
@@ -132,6 +152,10 @@ def main():
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
+    strategies = None
+    if args.modes:
+        strategies = args.modes.split(',')
+
     writer = None
     if args.csv:
         writer = csv.writer(sys.stdout, delimiter=';')
@@ -145,17 +169,19 @@ def main():
         if not os.path.exists(args.statedir):
             os.makedirs(args.statedir)
 
+    project = os.path.basename(os.getcwd())
     commits = args.commits
 
     if len(commits) == 1 and commits[0] == 'all':
         for commit in get_merge_commits():
-            for job in get_jobs(target, args.noop, args.statedir, [commit,]):
+            for job in get_jobs(target, strategies, args.noop, args.statedir, [commit,]):
                 run(job, args.prune, writer, args.file, args.noop)
-                write_state(job, args.statedir)
+            write_state(project, commit, strategies, args.statedir)
     else:
-        for job in get_jobs(target, args.noop, args.statedir, commits):
+        for job in get_jobs(target, strategies, args.noop, args.statedir, commits):
             run(job, args.prune, writer, args.file, args.noop)
-            write_state(job, args.statedir)
+        for commit in commits:
+            write_state(project, commit, strategies, args.statedir)
 
     if args.prune and os.path.exists(target) and not os.listdir(target):
         os.rmdir(target)

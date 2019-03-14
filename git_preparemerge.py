@@ -11,18 +11,6 @@ import tempfile
 from plumbum import local
 from plumbum.commands.processes import ProcessExecutionError
 
-
-###############################################################################
-# <CONFIG>
-
-# example: STRATEGIES = ['linebased', 'structured']
-#STRATEGIES = ['linebased', 'structured', 'semistructured', 'linebased,structured', 'linebased,semistructured,structured']
-STRATEGIES = ['linebased', 'semistructured', 'structured']
-#STRATEGIES = ['linebased']
-
-# </CONFIG>
-###############################################################################
-
 STRATEGY = '$$STRATEGY$$'
 GIT = local['git']
 
@@ -72,6 +60,10 @@ def main():
     parser.add_argument('-o', '--output',
                         help='Store output in this directory',
                         type=str)
+    parser.add_argument('-m', '--modes',
+                        help='Strategies to be prepared, separated by comma',
+                        type=str,
+                        default='structured')
     parser.add_argument('-n', '--noop',
                         help='Do not actually run',
                         action="store_true")
@@ -81,6 +73,8 @@ def main():
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
+    global STRATEGIES
+
     if args.output:
         target = args.output
     else:
@@ -89,6 +83,9 @@ def main():
     project = os.path.basename(os.getcwd())
     revs = collections.OrderedDict()
     commits = args.commits
+
+    if args.modes:
+        STRATEGIES = args.modes.split(',')
 
     state=None
     if args.statedir:
