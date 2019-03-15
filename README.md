@@ -21,8 +21,9 @@ cd jdime
 git checkout develop
 mkdir $HOME/opt
 make install
-echo "#!/bin/sh" >> $HOME/bin/jdime
+echo "#!/bin/sh" > $HOME/bin/jdime
 echo "$HOME/opt/JDime/bin/JDime $@" >> $HOME/bin/jdime
+chmod +x $HOME/bin/jdime
 ```
 
 # Config
