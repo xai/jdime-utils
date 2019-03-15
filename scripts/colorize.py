@@ -6,12 +6,13 @@ import csv
 import sys
 from plumbum import colors
 
-COLS = ['project', 'mergecommit', 'left', 'right', 'file', 'strategy', 'conflicts']
+COLS = ['project', 'timestamp', 'mergecommit', 'left', 'right', 'file', 'strategy', 'conflicts']
 
 def colorize(row):
-    scenario = '%s %s %s %s %s %s' % (row['project'], row['mergecommit'],
-                                      row['left'], row['right'], row['file'],
-                                      row['strategy'])
+    scenario = '%s %s %s %s %s %s %s' % (row['project'], row['timestamp'],
+                                         row['mergecommit'], row['left'],
+                                         row['right'], row['file'],
+                                         row['strategy'])
     print('%s: ' % scenario, end='')
     if int(row['conflicts']) > 0:
         print(colors.cyan | ('OK (%d conflicts)' % int(row['conflicts'])))
