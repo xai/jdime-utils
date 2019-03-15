@@ -7,6 +7,7 @@ import csv
 import os
 import sys
 import tempfile
+import time
 from plumbum import colors
 from plumbum import local
 from plumbum.cmd import grep
@@ -15,7 +16,8 @@ from plumbum.commands.processes import ProcessExecutionError
 
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
-COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
+COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'strategies',
+        'target', 'cmd']
 
 def get_merge_commits(before):
     if before:
@@ -75,7 +77,10 @@ def run(job, prune, writer, srcfile=None, noop=False):
             args = cmd[1:]
             outfile = args[6]
 
+            t0 = time.time()
             ret, stdout, stderr = local[exe][args].run(retcode=None)
+            t1 = time.time()
+            runtime = t1 - t0
 
             if ret == 0:
                 conflicts = count_conflicts(outfile)
@@ -88,7 +93,7 @@ def run(job, prune, writer, srcfile=None, noop=False):
                 else:
                     writer.writerow([project, timestamp, mergecommit, left,
                                      right, file, strategy, conflicts,
-                                     jdimeversion])
+                                     runtime, jdimeversion])
             else:
                 fail = True
                 print('%s: ' % scenario, end='', file=sys.stderr)

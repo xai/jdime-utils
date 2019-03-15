@@ -15,9 +15,16 @@ JDIMEVERSION="$(git rev-parse --short HEAD)"
 OPTIONS=""
 if [ -n $1 ]; then
 	OPTIONS="-b $1"
+	shift
 fi
 
-for url in $(cat $PROJECTS); do
+if [ -n $1 ]; then
+	urls="$@"
+else
+	urls="$(cat $PROJECTS)"
+fi
+
+for url in $urls; do
 	url=$(echo "$url" | sed -e 's/http:/https:/')
 	cd $REPOS
 	repo=$(echo "$url" | cut -d'/' -f5)

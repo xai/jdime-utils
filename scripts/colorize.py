@@ -7,13 +7,13 @@ import sys
 from plumbum import colors
 
 COLS = ['project', 'timestamp', 'mergecommit', 'left', 'right', 'file',
-        'strategy', 'conflicts', 'jdimeversion']
+        'strategy', 'conflicts', 'runtime', 'jdimeversion']
 
 def colorize(row):
-    scenario = '%s %s %s %s %s %s %s' % (row['project'], row['timestamp'],
+    scenario = '%s %s %s %s %s %s %s %.4fs' % (row['project'], row['timestamp'],
                                          row['mergecommit'], row['left'],
                                          row['right'], row['file'],
-                                         row['strategy'])
+                                         row['strategy'], float(row['runtime']))
     print('%s: ' % scenario, end='')
     if int(row['conflicts']) > 0:
         print(colors.cyan | ('OK (%d conflicts)' % int(row['conflicts'])))
