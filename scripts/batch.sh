@@ -7,6 +7,11 @@ STATEDIR="$HOME/state"
 
 SCRIPTS="$(dirname $(readlink -f $0))"
 
+OPTIONS=""
+if [ -n $1 ]; then
+	OPTIONS="-b $1"
+fi
+
 for url in $(cat $PROJECTS); do
 	url=$(echo "$url" | sed -e 's/http:/https:/')
 	cd $REPOS
@@ -26,6 +31,6 @@ for url in $(cat $PROJECTS); do
 	fi
 	if [ -d ${repo} ]; then
 		cd ${repo}
-		git jdime -o $TMPDIR -s $STATEDIR -p all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
+		git jdime -o $TMPDIR -s $STATEDIR -p $OPTIONS all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
 	fi
 done
