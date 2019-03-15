@@ -68,6 +68,7 @@ def run(job, prune, writer, srcfile=None, noop=False):
         errorlog = os.path.join(target, 'error.log')
         strategies = job['strategies'].split(',')
         for strategy in strategies:
+            strategy = strategy.replace('+', ',')
             scenario = '%s %s %s %s %s %s %s' % (project, timestamp, mergecommit, left, right, file, strategy)
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]

@@ -31,6 +31,6 @@ for url in $(cat $PROJECTS); do
 	fi
 	if [ -d ${repo} ]; then
 		cd ${repo}
-		git jdime -o $TMPDIR -s $STATEDIR -p $OPTIONS all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
+		git jdime -o $TMPDIR -s $STATEDIR -m linebased,structured,linebased+structured -p $OPTIONS all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
 	fi
 done
