@@ -4,8 +4,13 @@ REPOS="$HOME/repos"
 CSV="$HOME/csv"
 TMPDIR="/tmp/jdime"
 STATEDIR="$HOME/state"
+JDIMESRC="$HOME/src/jdime"
 
 SCRIPTS="$(dirname $(readlink -f $0))"
+
+workingdir=$(pwd)
+cd $JDIMESRC || ( echo "$JDIMESRC not found"; exit 1 )
+JDIMEVERSION="$(git rev-parse --short HEAD)"
 
 OPTIONS=""
 if [ -n $1 ]; then
@@ -31,6 +36,6 @@ for url in $(cat $PROJECTS); do
 	fi
 	if [ -d ${repo} ]; then
 		cd ${repo}
-		git jdime -o $TMPDIR -s $STATEDIR -m linebased,structured,linebased+structured -p $OPTIONS all -c | tee ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
+		git jdime -o $TMPDIR -s $STATEDIR -t $JDIMEVERSION -m linebased,structured,linebased+structured -p $OPTIONS all -c | tee -a ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
 	fi
 done

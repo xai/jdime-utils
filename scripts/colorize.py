@@ -6,7 +6,8 @@ import csv
 import sys
 from plumbum import colors
 
-COLS = ['project', 'timestamp', 'mergecommit', 'left', 'right', 'file', 'strategy', 'conflicts']
+COLS = ['project', 'timestamp', 'mergecommit', 'left', 'right', 'file',
+        'strategy', 'conflicts', 'jdimeversion']
 
 def colorize(row):
     scenario = '%s %s %s %s %s %s %s' % (row['project'], row['timestamp'],

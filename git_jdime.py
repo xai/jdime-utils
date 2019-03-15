@@ -87,7 +87,8 @@ def run(job, prune, writer, srcfile=None, noop=False):
                         print(colors.green | 'OK')
                 else:
                     writer.writerow([project, timestamp, mergecommit, left,
-                                     right, file, strategy, conflicts])
+                                     right, file, strategy, conflicts,
+                                     jdimeversion])
             else:
                 fail = True
                 print('%s: ' % scenario, end='', file=sys.stderr)
@@ -132,6 +133,7 @@ def write_state(project, commit, strategies, statedir):
                                       strategy])
 
 def main():
+    global jdimeversion
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--output',
                         help='Store output in this directory',
@@ -158,6 +160,9 @@ def main():
     parser.add_argument('-b', '--before',
                         help='Use only commits before <date>',
                         type=str)
+    parser.add_argument('-t', '--tag',
+                        help='Append this tag to each line',
+                        type=str)
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
@@ -178,6 +183,10 @@ def main():
         if not os.path.exists(args.statedir):
             os.makedirs(args.statedir)
 
+    if args.tag:
+        jdimeversion = args.tag
+    else:
+        jdimeversion = local['jdime']['-v']().strip()
 
     project = os.path.basename(os.getcwd())
     commits = args.commits
