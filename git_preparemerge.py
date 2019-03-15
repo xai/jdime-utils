@@ -39,7 +39,7 @@ def prepare_job(target, revs, file):
         except ProcessExecutionError:
             os.remove(os.path.join(target, rev, file))
 
-def write_job(writer, target, project, revs, file):
+def write_job(writer, target, project, timestamp, revs, file):
     inputfiles = []
     for rev in revs.keys():
         if rev == 'merge':
@@ -52,7 +52,7 @@ def write_job(writer, target, project, revs, file):
     cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (STRATEGY,
                                                       outfile,
                                                       ' '.join(inputfiles))
-    writer.writerow([project, revs['merge'], revs['left'], revs['right'],
+    writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
                      file, ','.join(STRATEGIES), target, cmd])
 
 def main():
@@ -145,12 +145,14 @@ def main():
         pass
     revs['right'] = right
 
+    timestamp = GIT['log', '--pretty=%ci', '-n1', mergecommit]().strip()
+
     writer = csv.writer(sys.stdout, delimiter=';')
     for file in get_merged_files(revs):
         if file.endswith('.java'):
             if not args.noop:
                 prepare_job(target, revs, file)
-            write_job(writer, target, project, revs, file)
+            write_job(writer, target, project, timestamp, revs, file)
 
 if __name__ == "__main__":
     main()

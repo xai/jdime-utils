@@ -15,10 +15,14 @@ from plumbum.commands.processes import ProcessExecutionError
 
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
-COLS = ['project', 'merge', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
+COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'strategies', 'target', 'cmd']
 
-def get_merge_commits():
-    return GIT['rev-list', '--all', '--merges']().splitlines()
+def get_merge_commits(before):
+    if before:
+        return GIT['rev-list', '--all', '--merges', '--reverse',
+                   '--before', before]().splitlines()
+    else:
+        return GIT['rev-list', '--all', '--merges', '--reverse']().splitlines()
 
 def get_jobs(target, strategies=None, noop=False, statedir=None, commits=[]):
     options = ["-o", target]
@@ -51,6 +55,7 @@ def run(job, prune, writer, srcfile=None, noop=False):
         return
 
     project = job['project']
+    timestamp = job['timestamp']
     mergecommit = job['merge'][0:7]
     left = job['left'][0:7]
     right = job['right'][0:7]
@@ -63,7 +68,7 @@ def run(job, prune, writer, srcfile=None, noop=False):
         errorlog = os.path.join(target, 'error.log')
         strategies = job['strategies'].split(',')
         for strategy in strategies:
-            scenario = '%s %s %s %s %s %s' % (project, mergecommit, left, right, file, strategy)
+            scenario = '%s %s %s %s %s %s %s' % (project, timestamp, mergecommit, left, right, file, strategy)
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
@@ -80,8 +85,8 @@ def run(job, prune, writer, srcfile=None, noop=False):
                     else:
                         print(colors.green | 'OK')
                 else:
-                    writer.writerow([project, mergecommit, left, right, file, strategy,
-                                     conflicts])
+                    writer.writerow([project, timestamp, mergecommit, left,
+                                     right, file, strategy, conflicts])
             else:
                 fail = True
                 print('%s: ' % scenario, end='', file=sys.stderr)
@@ -149,6 +154,9 @@ def main():
     parser.add_argument('-s', '--statedir',
                         help='Use state files to skip completed tasks',
                         type=str)
+    parser.add_argument('-b', '--before',
+                        help='Use only commits before <date>',
+                        type=str)
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
@@ -169,11 +177,12 @@ def main():
         if not os.path.exists(args.statedir):
             os.makedirs(args.statedir)
 
+
     project = os.path.basename(os.getcwd())
     commits = args.commits
 
     if len(commits) == 1 and commits[0] == 'all':
-        for commit in get_merge_commits():
+        for commit in get_merge_commits(args.before):
             for job in get_jobs(target, strategies, args.noop, args.statedir, [commit,]):
                 run(job, args.prune, writer, args.file, args.noop)
             write_state(project, commit, strategies, args.statedir)
