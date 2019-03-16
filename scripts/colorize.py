@@ -6,17 +6,32 @@ import csv
 import sys
 from plumbum import colors
 
-COLS = ['project', 'timestamp', 'mergecommit', 'left', 'right', 'file',
-        'strategy', 'conflicts', 'runtime', 'jdimeversion']
+COLS = ['project',
+        'timestamp',
+        'mergecommit',
+        'left',
+        'right',
+        'file',
+        'strategy',
+        'conflicts',
+        'clines',
+        'ctokens',
+        'parsed_conflicts',
+        'runtime',
+        'jdimeversion']
 
 def colorize(row):
-    scenario = '%s %s %s %s %s %s %s %.4fs' % (row['project'], row['timestamp'],
+    scenario = '%s %s %s %s %s %s %s %.4f' % (row['project'], row['timestamp'],
                                          row['mergecommit'], row['left'],
                                          row['right'], row['file'],
                                          row['strategy'], float(row['runtime']))
     print('%s: ' % scenario, end='')
-    if int(row['conflicts']) > 0:
-        print(colors.cyan | ('OK (%d conflicts)' % int(row['conflicts'])))
+    if int(row['conflicts']) > 0 or int(row['parsed_conflicts']) > 0:
+        print(colors.cyan | ('OK (%d/%d conflicts, %d lines, %d tokens)' %
+                             (int(row['parsed_conflicts']),
+                              int(row['conflicts']),
+                              int(row['clines']),
+                              int(row['ctokens']))))
     else:
         print(colors.green | 'OK')
 

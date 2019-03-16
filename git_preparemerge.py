@@ -49,9 +49,9 @@ def write_job(writer, target, project, timestamp, revs, file):
         if rev != 'base' or os.path.exists(inputfile):
             inputfiles.append(inputfile)
     outfile = os.path.join(target, STRATEGY, file)
-    cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (STRATEGY,
-                                                      outfile,
-                                                      ' '.join(inputfiles))
+    cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s' % (STRATEGY,
+                                                         outfile,
+                                                         ' '.join(inputfiles))
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
                      file, ','.join(STRATEGIES), target, cmd])
 

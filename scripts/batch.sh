@@ -43,6 +43,6 @@ for url in $urls; do
 	fi
 	if [ -d ${repo} ]; then
 		cd ${repo}
-		git jdime -o $TMPDIR -s $STATEDIR -t $JDIMEVERSION -m linebased,structured,linebased+structured -p $OPTIONS all -c | tee -a ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
+		git jdime -o $TMPDIR -s $STATEDIR -t $JDIMEVERSION -m linebased,structured,semistructured -p $OPTIONS all -c | tee -a ${CSV}/${repo}.csv | ${SCRIPTS}/colorize.py
 	fi
 done

@@ -12,6 +12,7 @@ from plumbum import colors
 from plumbum import local
 from plumbum.cmd import grep
 from plumbum.commands.processes import ProcessExecutionError
+from xml.etree import ElementTree as ET
 
 
 GIT = local['git']
@@ -78,7 +79,7 @@ def run(job, prune, writer, srcfile=None, noop=False):
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
-            outfile = args[6]
+            outfile = args[7]
 
             t0 = time.time()
             ret, stdout, stderr = local[exe][args].run(retcode=None)
@@ -86,7 +87,11 @@ def run(job, prune, writer, srcfile=None, noop=False):
             runtime = t1 - t0
 
             if ret == 0:
-                conflicts = count_conflicts(outfile)
+                tree = ET.fromstring(stdout)
+                conflicts = int(tree.find("./mergescenariostatistics/conflicts").text)
+                clines = int(tree.find('./mergescenariostatistics/lineStatistics').attrib['numOccurInConflict'])
+                ctokens = int(tree.find('./mergescenariostatistics/tokenStatistics').attrib['numOccurInConflict'])
+                parsed_conflicts = count_conflicts(outfile)
                 if not writer:
                     print('%s: ' % scenario, end='')
                     if conflicts > 0:
@@ -94,9 +99,19 @@ def run(job, prune, writer, srcfile=None, noop=False):
                     else:
                         print(colors.green | 'OK')
                 else:
-                    writer.writerow([project, timestamp, mergecommit, left,
-                                     right, file, strategy, conflicts,
-                                     runtime, jdimeversion])
+                    writer.writerow([project,
+                                     timestamp,
+                                     mergecommit,
+                                     left,
+                                     right,
+                                     file,
+                                     strategy,
+                                     conflicts,
+                                     clines,
+                                     ctokens,
+                                     parsed_conflicts,
+                                     runtime,
+                                     jdimeversion])
             else:
                 fail = True
                 print('%s: ' % scenario, end='', file=sys.stderr)
