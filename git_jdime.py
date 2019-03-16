@@ -171,9 +171,7 @@ def main():
     parser.add_argument('commits', default=[], nargs='+')
     args = parser.parse_args()
 
-    strategies = None
-    if args.modes:
-        strategies = args.modes.split(',')
+    strategies = args.modes.split(',')
 
     writer = None
     if args.csv:
@@ -200,12 +198,12 @@ def main():
         for commit in get_merge_commits(args.before):
             for job in get_jobs(target, strategies, args.noop, args.statedir, [commit,]):
                 run(job, args.prune, writer, args.file, args.noop)
-            write_state(project, commit, strategies, args.statedir)
+            write_state(project, commit, strategies.copy(), args.statedir)
     else:
         for job in get_jobs(target, strategies, args.noop, args.statedir, commits):
             run(job, args.prune, writer, args.file, args.noop)
         for commit in commits:
-            write_state(project, commit, strategies, args.statedir)
+            write_state(project, commit, strategies.copy(), args.statedir)
 
     if args.prune and os.path.exists(target) and not os.listdir(target):
         os.rmdir(target)
