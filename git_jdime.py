@@ -43,7 +43,10 @@ def count_conflicts(merged_file):
     conflicts = 0
 
     try:
-        conflicts = int(grep['-c', '-e', '^<<<<<<<', merged_file]().strip())
+        m1 = int(grep['-c', '-e', '^<<<<<<<', merged_file]().strip())
+        m2 = int(grep['-c', '-e', '^=======', merged_file]().strip())
+        m3 = int(grep['-c', '-e', '^>>>>>>>', merged_file]().strip())
+        conflicts = min(m1, m2, m3)
     except ProcessExecutionError:
         pass
 
