@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import time
+import statistics
 from plumbum import colors
 from plumbum import local
 from plumbum.cmd import grep
@@ -53,7 +54,7 @@ def count_conflicts(merged_file):
 
     return conflicts
 
-def run(job, prune, writer, srcfile=None, noop=False):
+def run(job, prune, writer, runs=0, srcfile=None, noop=False):
 
     if noop:
         writer = csv.DictWriter(sys.stdout, delimiter=';', fieldnames=COLS)
@@ -81,10 +82,15 @@ def run(job, prune, writer, srcfile=None, noop=False):
             args = cmd[1:]
             outfile = args[7]
 
-            t0 = time.time()
-            ret, stdout, stderr = local[exe][args].run(retcode=None)
-            t1 = time.time()
-            runtime = t1 - t0
+            runtimes = []
+            for i in range(runs):
+                if os.path.exists(outfile):
+                    os.remove(outfile)
+                t0 = time.time()
+                ret, stdout, stderr = local[exe][args].run(retcode=None)
+                t1 = time.time()
+                runtimes.append(t1 - t0)
+            runtime = statistics.median(runtimes)
 
             if ret == 0:
                 tree = ET.fromstring(stdout)
@@ -183,6 +189,10 @@ def main():
     parser.add_argument('-b', '--before',
                         help='Use only commits before <date>',
                         type=str)
+    parser.add_argument('-r', '--runs',
+                        help='Run task this many times (e.g., for benchmarks)',
+                        type=int,
+                        default=1)
     parser.add_argument('-t', '--tag',
                         help='Append this tag to each line',
                         type=str)
@@ -209,17 +219,20 @@ def main():
     else:
         jdimeversion = local['jdime']['-v']().strip()
 
+    if args.runs > 1:
+        jdimeversion += " runs:" + str(args.runs)
+
     project = os.path.basename(os.getcwd())
     commits = args.commits
 
     if len(commits) == 1 and commits[0] == 'all':
         for commit in get_merge_commits(args.before):
             for job in get_jobs(target, strategies, args.noop, args.statedir, [commit,]):
-                run(job, args.prune, writer, args.file, args.noop)
+                run(job, args.prune, writer, args.runs, args.file, args.noop)
             write_state(project, commit, strategies.copy(), args.statedir)
     else:
         for job in get_jobs(target, strategies, args.noop, args.statedir, commits):
-            run(job, args.prune, writer, args.file, args.noop)
+            run(job, args.prune, writer, args.runs, args.file, args.noop)
         for commit in commits:
             write_state(project, commit, strategies.copy(), args.statedir)
 
