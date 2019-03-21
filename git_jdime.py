@@ -218,9 +218,10 @@ def main():
         jdimeversion = args.tag
     else:
         jdimeversion = local['jdime']['-v']().strip()
-
     if args.runs > 1:
         jdimeversion += " runs:" + str(args.runs)
+    # make sure this doesn't interfere with our csv delimiter
+    jdimeversion.replace(';', ',')
 
     project = os.path.basename(os.getcwd())
     commits = args.commits
