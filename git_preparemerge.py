@@ -18,8 +18,8 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def get_merged_files(revs):
-    merged_files = GIT['diff', '--name-status', '--diff-filter=M',
-                       revs['left'], revs['right']]().splitlines()
+    merged_files = GIT['diff', '--name-status', '--diff-filter=MR',
+                       revs['left'] + '...' + revs['right']]().splitlines()
     return map(lambda x: x[2:], merged_files)
 
 def prepare_job(target, revs, file):
