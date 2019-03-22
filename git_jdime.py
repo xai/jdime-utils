@@ -98,6 +98,18 @@ def run(job, prune, writer, runs=0, srcfile=None, noop=False):
                 clines = int(tree.find('./mergescenariostatistics/lineStatistics').attrib['numOccurInConflict'])
                 ctokens = int(tree.find('./mergescenariostatistics/tokenStatistics').attrib['numOccurInConflict'])
                 parsed_conflicts = count_conflicts(outfile)
+                xmlruntimes={'merge': None,
+                             'parse': None,
+                             'semistructure': None,
+                             'LinebasedStrategy': None,
+                             'SemiStructuredStrategy': None,
+                             'StructuredStrategy': None}
+
+                for e in tree.findall("./mergescenariostatistics/runtime"):
+                    for label in xmlruntimes:
+                        if label == e.attrib['label']:
+                            xmlruntimes[label] = int(e.attrib['timeMS'])
+
                 if not writer:
                     print('%s: ' % scenario, end='')
                     if conflicts > 0:
@@ -117,6 +129,12 @@ def run(job, prune, writer, runs=0, srcfile=None, noop=False):
                                      ctokens,
                                      parsed_conflicts,
                                      runtime,
+                                     xmlruntimes['merge'],
+                                     xmlruntimes['parse'],
+                                     xmlruntimes['semistructure'],
+                                     xmlruntimes['LinebasedStrategy'],
+                                     xmlruntimes['SemiStructuredStrategy'],
+                                     xmlruntimes['StructuredStrategy'],
                                      jdimeversion])
             else:
                 fail = True
@@ -180,6 +198,9 @@ def main():
     parser.add_argument('-c', '--csv',
                         help='Print in csv format',
                         action="store_true")
+    parser.add_argument('-H', '--header',
+                        help='Include csv header',
+                        action="store_true")
     parser.add_argument('-n', '--noop',
                         help='Do not actually run',
                         action="store_true")
@@ -204,7 +225,27 @@ def main():
     writer = None
     if args.csv:
         writer = csv.writer(sys.stdout, delimiter=';')
-
+        if args.header:
+            outputcols = ['project',
+                          'timestamp',
+                          'mergecommit',
+                          'left',
+                          'right',
+                          'file',
+                          'strategy',
+                          'conflicts',
+                          'clines',
+                          'ctokens',
+                          'parsed_conflicts',
+                          'runtime',
+                          't_merge',
+                          't_parse',
+                          't_semistructure',
+                          't_LinebasedStrategy',
+                          't_SemiStructuredStrategy',
+                          't_StructuredStrategy',
+                          'jdimeversion']
+            writer.writerow(outputcols)
     if args.output:
         target = args.output
     else:
