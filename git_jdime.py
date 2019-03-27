@@ -54,7 +54,7 @@ def count_conflicts(merged_file):
 
     return conflicts
 
-def run(job, prune, writer, runs=0, srcfile=None, noop=False):
+def run(job, prune, writer, runs=1, srcfile=None, noop=False):
 
     if noop:
         writer = csv.DictWriter(sys.stdout, delimiter=';', fieldnames=COLS)
