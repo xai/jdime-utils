@@ -28,13 +28,16 @@ def get_merge_commits(before):
     else:
         return GIT['rev-list', '--all', '--merges', '--reverse']().splitlines()
 
-def get_jobs(target, strategies=None, noop=False, statedir=None, commits=[]):
+def get_jobs(target, strategies=None, jdimeopts=None, noop=False, statedir=None, commits=[]):
     options = ["-o", target]
     if strategies:
         options.append("-m")
         options.append(','.join(strategies))
     if noop:
         options.append("-n")
+    if jdimeopts:
+        options.append("-j")
+        options.append(jdimeopts)
     if statedir:
         options.append("-s")
         options.append(statedir)
@@ -189,6 +192,9 @@ def main():
                         help='Strategies to be prepared, separated by comma',
                         type=str,
                         default='structured,linebased')
+    parser.add_argument('-j', '--jdimeopts',
+                        help='Additional options to pass to jdime',
+                        type=str)
     parser.add_argument('-f', '--file',
                         help='Merge only specified file',
                         type=str)
@@ -269,11 +275,11 @@ def main():
 
     if len(commits) == 1 and commits[0] == 'all':
         for commit in get_merge_commits(args.before):
-            for job in get_jobs(target, strategies, args.noop, args.statedir, [commit,]):
+            for job in get_jobs(target, strategies, args.jdimeopts, args.noop, args.statedir, [commit,]):
                 run(job, args.prune, writer, args.runs, args.file, args.noop)
             write_state(project, commit, strategies.copy(), args.statedir)
     else:
-        for job in get_jobs(target, strategies, args.noop, args.statedir, commits):
+        for job in get_jobs(target, strategies, args.jdimeopts, args.noop, args.statedir, commits):
             run(job, args.prune, writer, args.runs, args.file, args.noop)
         for commit in commits:
             write_state(project, commit, strategies.copy(), args.statedir)

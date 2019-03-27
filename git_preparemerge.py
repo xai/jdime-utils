@@ -39,7 +39,7 @@ def prepare_job(target, revs, file):
         except ProcessExecutionError:
             os.remove(os.path.join(target, rev, file))
 
-def write_job(writer, target, project, timestamp, revs, file):
+def write_job(writer, target, project, timestamp, revs, jdimeopts, file):
     inputfiles = []
     for rev in revs.keys():
         if rev == 'merge':
@@ -49,8 +49,13 @@ def write_job(writer, target, project, timestamp, revs, file):
         if rev != 'base' or os.path.exists(inputfile):
             inputfiles.append(inputfile)
     outfile = os.path.join(target, STRATEGY, file)
-    cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s' % (STRATEGY,
+    if jdimeopts:
+        jdimeopts = '-' + jdimeopts
+    else:
+        jdimeopts = ''
+    cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s %s' % (STRATEGY,
                                                          outfile,
+                                                         jdimeopts,
                                                          ' '.join(inputfiles))
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
                      file, ','.join(STRATEGIES), target, cmd])
@@ -64,6 +69,9 @@ def main():
                         help='Strategies to be prepared, separated by comma',
                         type=str,
                         default='structured')
+    parser.add_argument('-j', '--jdimeopts',
+                        help='Additional options to pass to jdime',
+                        type=str)
     parser.add_argument('-n', '--noop',
                         help='Do not actually run',
                         action="store_true")
@@ -152,7 +160,7 @@ def main():
         if file.endswith('.java'):
             if not args.noop:
                 prepare_job(target, revs, file)
-            write_job(writer, target, project, timestamp, revs, file)
+            write_job(writer, target, project, timestamp, revs, args.jdimeopts, file)
 
 if __name__ == "__main__":
     main()
