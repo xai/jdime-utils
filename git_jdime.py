@@ -18,8 +18,8 @@ from xml.etree import ElementTree as ET
 
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
-COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'strategies',
-        'target', 'cmd']
+COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'mergetype',
+        'strategies', 'target', 'cmd']
 
 def get_merge_commits(before):
     if before:
@@ -71,15 +71,42 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
     right = job['right'][0:7]
     file = job['file']
     target = job['target']
+    mergetype = job['mergetype']
 
     fail = False
+
+    if mergetype == "skipped":
+        writer.writerow([project,
+                         timestamp,
+                         mergecommit,
+                         left,
+                         right,
+                         file,
+                         mergetype,
+                         job["cmd"],
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         '',
+                         jdimeversion])
+        return
+
 
     if not srcfile or srcfile == file:
         errorlog = os.path.join(target, 'error.log')
         strategies = job['strategies'].split(',')
         for strategy in strategies:
             strategy = strategy.replace('+', ',')
-            scenario = '%s %s %s %s %s %s %s' % (project, timestamp, mergecommit, left, right, file, strategy)
+            scenario = '%s %s %s %s %s %s %s %s' % (project, timestamp,
+                                                    mergecommit, left, right,
+                                                    file, mergetype, strategy)
             cmd = job['cmd'].replace(STRATEGY, strategy).split(' ')
             exe = cmd[0]
             args = cmd[1:]
@@ -95,7 +122,7 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                 runtimes.append(t1 - t0)
             runtime = statistics.median(runtimes)
 
-            if ret == 0:
+            if ret >= 0:
                 tree = ET.fromstring(stdout)
                 conflicts = int(tree.find("./mergescenariostatistics/conflicts").text)
                 clines = int(tree.find('./mergescenariostatistics/lineStatistics').attrib['numOccurInConflict'])
@@ -126,6 +153,7 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                                      left,
                                      right,
                                      file,
+                                     mergetype,
                                      strategy,
                                      conflicts,
                                      clines,
@@ -141,8 +169,30 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                                      jdimeversion])
             else:
                 fail = True
-                print('%s: ' % scenario, end='', file=sys.stderr)
-                print(colors.red | ('FAILED (%d)' % ret), file=sys.stderr)
+                if not writer:
+                    print('%s: ' % scenario, end='', file=sys.stderr)
+                    print(colors.red | ('FAILED (%d)' % ret), file=sys.stderr)
+                else:
+                    writer.writerow([project,
+                                     timestamp,
+                                     mergecommit,
+                                     left,
+                                     right,
+                                     file,
+                                     'FAILED (' + str(ret) + ')',
+                                     job["strategy"],
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     '',
+                                     jdimeversion])
                 with open(errorlog, 'a') as err:
                     err.write(80 * '=' + '\r\n')
                     err.write(scenario + '\r\n')
@@ -238,6 +288,7 @@ def main():
                           'left',
                           'right',
                           'file',
+                          'mergetype',
                           'strategy',
                           'conflicts',
                           'clines',

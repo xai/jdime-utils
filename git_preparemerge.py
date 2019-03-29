@@ -19,6 +19,7 @@ def eprint(*args, **kwargs):
 
 def get_merged_files(revs):
     merged_files = []
+    skipped_files = {}
     modified_lr = GIT['diff', '--name-status', '--diff-filter=AM',
                    revs['left'] + '...' + revs['right']]().splitlines()
     modified_rl = GIT['diff', '--name-status', '--diff-filter=AM',
@@ -56,6 +57,7 @@ def get_merged_files(revs):
     intersection = left_files.intersection(right_files)
     for f in intersection:
         if not f.endswith('.java'):
+            skipped_files[f] = "non-java file"
             continue
 
         b = None
@@ -68,6 +70,7 @@ def get_merged_files(revs):
                 if b != right_renamed[f]:
                     eprint("%s %s %s is a rename/rename conflict" %
                            (revs["left"], revs["right"], f))
+                    skipped_files[f] = "rename/rename conflict"
                     continue
 
         if f in left_files_new or f in right_files_new:
@@ -75,6 +78,7 @@ def get_merged_files(revs):
                 # conflict on file level
                 eprint("%s %s %s is a add/rename conflict" %
                        (revs["left"], revs["right"], f))
+                skipped_files[f] = "add/rename conflict"
                 continue
         elif not b:
             b = f
@@ -85,7 +89,15 @@ def get_merged_files(revs):
 
         merged_files.append((f,b,f))
 
-    return merged_files
+    for f in left_files.union(right_files).union(left_renamed.keys() |
+                                                 set()).union(right_renamed.keys()
+                                                             | set()):
+        if f not in intersection:
+            skipped_files[f] = "fast-forward"
+            if not f.endswith('.java'):
+                skipped_files[f] += " + non-java file"
+
+    return (merged_files, skipped_files)
 
 def prepare_job(target, revs, lbr, noop=False):
     l, b, r = lbr
@@ -114,19 +126,30 @@ def prepare_job(target, revs, lbr, noop=False):
     # return (inputfiles, os.path.join(target, STRATEGY, l))
     return (inputfiles, l)
 
-def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles, outputfile):
+def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles, outputfile, reason=None):
 
-    outfile = os.path.join(target, STRATEGY, outputfile)
-    if jdimeopts:
-        jdimeopts = '-' + jdimeopts
+    if len(inputfiles) > 0:
+        mergetype = ("%d-way" % len(inputfiles))
+        outfile = os.path.join(target, STRATEGY, outputfile)
+
+        if jdimeopts:
+            jdimeopts = '-' + jdimeopts
+        else:
+            jdimeopts = ''
+
+        cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s %s' % (STRATEGY,
+                                                                outfile,
+                                                                jdimeopts,
+                                                                ' '.join(inputfiles))
+        strategies = ','.join(STRATEGIES)
     else:
-        jdimeopts = ''
-    cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s %s' % (STRATEGY,
-                                                         outfile,
-                                                         jdimeopts,
-                                                         ' '.join(inputfiles))
+        mergetype = "skipped"
+        cmd = reason
+        target = ""
+        strategies = ""
+
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
-                     outputfile, ','.join(STRATEGIES), target, cmd])
+                     outputfile, mergetype, strategies, target, cmd])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -218,7 +241,7 @@ def main():
         revs['base'] = GIT['merge-base', left, right]().strip()
         if revs['base'] == left or revs['base'] == right:
             eprint("%s is a fast-forward merge" % mergecommit)
-            return
+            # return
     except ProcessExecutionError:
         # two-way merge
         eprint("%s is a two-way merge" % mergecommit)
@@ -228,10 +251,14 @@ def main():
     timestamp = GIT['log', '--pretty=%ci', '-n1', mergecommit]().strip()
 
     writer = csv.writer(sys.stdout, delimiter=';')
-    for lbr in get_merged_files(revs):
+    merged_files, skipped_files = get_merged_files(revs)
+    for lbr in merged_files:
         inputfiles, outputfile = prepare_job(target, revs, lbr, args.noop)
         write_job(writer, target, project, timestamp, revs, args.jdimeopts,
                   inputfiles, outputfile)
+    for f, reason in skipped_files.items():
+        write_job(writer, target, project, timestamp, revs, args.jdimeopts,
+                  [], f, reason)
 
 if __name__ == "__main__":
     main()
