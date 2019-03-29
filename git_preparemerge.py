@@ -41,21 +41,27 @@ def prepare_job(target, revs, file):
 
 def write_job(writer, target, project, timestamp, revs, jdimeopts, file):
     inputfiles = []
-    for rev in revs.keys():
-        if rev == 'merge':
-            continue
-
+    for rev in ["left", "base", "right"]:
         inputfile = os.path.join(target, rev, file)
-        if rev != 'base' or os.path.exists(inputfile):
+        if os.path.exists(inputfile) or (rev in revs
+                                         and len(GIT['ls-tree',
+                                                     '-z',
+                                                     '--name-only',
+                                                     revs[rev],
+                                                     file]().strip()) > 0):
             inputfiles.append(inputfile)
+        else:
+            if rev != "base":
+                raise RuntimeError("%s does not exist" % inputfile)
+
     outfile = os.path.join(target, STRATEGY, file)
     if jdimeopts:
         jdimeopts = '-' + jdimeopts
     else:
         jdimeopts = ''
-    cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s %s' % (STRATEGY,
-                                                         outfile,
+    cmd = 'jdime -eoe -log WARNING -s -m %s %s -o %s %s' % (STRATEGY,
                                                          jdimeopts,
+                                                         outfile,
                                                          ' '.join(inputfiles))
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
                      file, ','.join(STRATEGIES), target, cmd])
@@ -150,6 +156,7 @@ def main():
         revs['base'] = GIT['merge-base', left, right]().strip()
     except ProcessExecutionError:
         # two-way merge
+        eprint("%s is a two-way merge" % mergecommit)
         pass
     revs['right'] = right
 
