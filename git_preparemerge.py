@@ -18,53 +18,115 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def get_merged_files(revs):
-    merged_files = GIT['diff', '--name-status', '--diff-filter=MR',
+    merged_files = []
+    modified_lr = GIT['diff', '--name-status', '--diff-filter=AM',
+                   revs['left'] + '...' + revs['right']]().splitlines()
+    modified_rl = GIT['diff', '--name-status', '--diff-filter=AM',
+                   revs['right'] + '...' + revs['left']]().splitlines()
+    left_files = set()
+    right_files = set()
+    left_files_new = set()
+    right_files_new = set()
+    for line in modified_lr:
+        t, f = line.split('\t')[0:2]
+        left_files.add(f)
+        if t == 'A':
+            left_files_new.add(f)
+    for line in modified_rl:
+        t, f = line.split('\t')[0:2]
+        right_files.add(f)
+        if t == 'A':
+            right_files_new.add(f)
+
+    renamed_lr = GIT['diff', '--name-status', '--diff-filter=R',
                        revs['left'] + '...' + revs['right']]().splitlines()
-    return map(lambda x: x[2:], merged_files)
+    renamed_rl = GIT['diff', '--name-status', '--diff-filter=R',
+                       revs['right'] + '...' + revs['left']]().splitlines()
+    left_renamed = {}
+    right_renamed = {}
+    for line in renamed_lr:
+        old, new = line.split('\t')[1:3]
+        left_renamed[new] = old
+        left_files.add(new)
+    for line in renamed_rl:
+        old, new = line.split('\t')[1:3]
+        right_renamed[new] = old
+        right_files.add(new)
 
-def prepare_job(target, revs, file):
-    path = os.path.dirname(file)
-
-    for rev in STRATEGIES:
-        os.makedirs(os.path.join(target, rev, path), exist_ok=True)
-
-    for rev, commit in revs.items():
-        if rev == 'merge':
+    intersection = left_files.intersection(right_files)
+    for f in intersection:
+        if not f.endswith('.java'):
             continue
 
-        os.makedirs(os.path.join(target, rev, path), exist_ok=True)
-        try:
-            with open(os.path.join(target, rev, file), 'w') as targetfile:
-                targetfile.write(GIT['show', commit + ":" + file]())
-        except ProcessExecutionError:
-            os.remove(os.path.join(target, rev, file))
+        b = None
+        if f in left_renamed:
+            b = left_renamed[f]
+        if f in right_renamed:
+            if not b:
+                b = right_renamed[f]
+            else:
+                if b != right_renamed[f]:
+                    eprint("%s %s %s is a rename/rename conflict" %
+                           (revs["left"], revs["right"], f))
+                    continue
 
-def write_job(writer, target, project, timestamp, revs, jdimeopts, file):
+        if f in left_files_new or f in right_files_new:
+            if b:
+                # conflict on file level
+                eprint("%s %s %s is a add/rename conflict" %
+                       (revs["left"], revs["right"], f))
+                continue
+        elif not b:
+            b = f
+
+        if not b:
+            eprint("%s %s %s is a two-way merge" %
+                   (revs["left"], revs["right"], f))
+
+        merged_files.append((f,b,f))
+
+    return merged_files
+
+def prepare_job(target, revs, lbr, noop=False):
+    l, b, r = lbr
+    lpath = os.path.dirname(l)
+
+    if not noop:
+        for rev in STRATEGIES:
+            os.makedirs(os.path.join(target, rev, lpath), exist_ok=True)
+
+    keys = ("left", "base", "right")
     inputfiles = []
-    for rev in ["left", "base", "right"]:
-        inputfile = os.path.join(target, rev, file)
-        if os.path.exists(inputfile) or (rev in revs
-                                         and len(GIT['ls-tree',
-                                                     '-z',
-                                                     '--name-only',
-                                                     revs[rev],
-                                                     file]().strip()) > 0):
-            inputfiles.append(inputfile)
-        else:
-            if rev != "base":
-                raise RuntimeError("%s does not exist" % inputfile)
+    for key, commit, filename in zip(keys, [ revs[key] if key in revs else None for key in keys ], lbr):
 
-    outfile = os.path.join(target, STRATEGY, file)
+        if commit and filename:
+            inputfile = os.path.join(target, key, filename)
+            if not noop:
+                os.makedirs(os.path.dirname(inputfile), exist_ok=True)
+                try:
+                    with open(inputfile, 'w') as targetfile:
+                        targetfile.write(GIT['show', commit + ":" + filename]())
+                except ProcessExecutionError:
+                    os.remove(inputfile)
+
+            inputfiles.append(inputfile)
+
+    # return (inputfiles, os.path.join(target, STRATEGY, l))
+    return (inputfiles, l)
+
+def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles, outputfile):
+
+    outfile = os.path.join(target, STRATEGY, outputfile)
     if jdimeopts:
         jdimeopts = '-' + jdimeopts
     else:
         jdimeopts = ''
-    cmd = 'jdime -eoe -log WARNING -s -m %s %s -o %s %s' % (STRATEGY,
-                                                         jdimeopts,
+    cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s %s' % (STRATEGY,
                                                          outfile,
+                                                         jdimeopts,
                                                          ' '.join(inputfiles))
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
-                     file, ','.join(STRATEGIES), target, cmd])
+                     outputfile, ','.join(STRATEGIES), target, cmd])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -154,6 +216,9 @@ def main():
     revs['left'] = left
     try:
         revs['base'] = GIT['merge-base', left, right]().strip()
+        if revs['base'] == left or revs['base'] == right:
+            eprint("%s is a fast-forward merge" % mergecommit)
+            return
     except ProcessExecutionError:
         # two-way merge
         eprint("%s is a two-way merge" % mergecommit)
@@ -163,11 +228,10 @@ def main():
     timestamp = GIT['log', '--pretty=%ci', '-n1', mergecommit]().strip()
 
     writer = csv.writer(sys.stdout, delimiter=';')
-    for file in get_merged_files(revs):
-        if file.endswith('.java'):
-            if not args.noop:
-                prepare_job(target, revs, file)
-            write_job(writer, target, project, timestamp, revs, args.jdimeopts, file)
+    for lbr in get_merged_files(revs):
+        inputfiles, outputfile = prepare_job(target, revs, lbr, args.noop)
+        write_job(writer, target, project, timestamp, revs, args.jdimeopts,
+                  inputfiles, outputfile)
 
 if __name__ == "__main__":
     main()
