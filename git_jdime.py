@@ -122,7 +122,7 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                 runtimes.append(t1 - t0)
             runtime = statistics.median(runtimes)
 
-            if ret >= 0:
+            if ret >= 0 and ret <= 127:
                 tree = ET.fromstring(stdout)
                 conflicts = int(tree.find("./mergescenariostatistics/conflicts").text)
                 clines = int(tree.find('./mergescenariostatistics/lineStatistics').attrib['numOccurInConflict'])
@@ -180,12 +180,12 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                                      right,
                                      file,
                                      'FAILED (' + str(ret) + ')',
-                                     job["strategy"],
+                                     strategy,
                                      '',
                                      '',
                                      '',
                                      '',
-                                     '',
+                                     runtime,
                                      '',
                                      '',
                                      '',
