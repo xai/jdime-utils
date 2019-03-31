@@ -95,6 +95,6 @@ I typically use `-t` to add information on my test environment, like the commit 
 A practical example looks like this:  
 ```
 cd ~/repos/someproject
-git jdime -p -H -c -m linebased,structured,linebased+structured all | tee ~/csvs/someproject.csv | ~/path/to/jdime-utils/scripts/colorize.py
+git jdime -o /tmp/jdime -p -H -c -m linebased,structured,linebased+structured all | tee ~/csvs/someproject.csv | ~/path/to/jdime-utils/scripts/colorize.py
 ```
-This runs the strategies linebased, structured, and a combined strategy on all merge commits of the project, stores a ';'-separated csv file to ~/csvs/someproject.csv, and provides colored, human readable output on stdout.
+This runs the strategies linebased, structured, and a combined strategy on all merge commits of the project, stores a ';'-separated csv file to ~/csvs/someproject.csv, and provides colored, human readable output on stdout. The files that are being merged and the respective merge output is written to a temporary directory named /tmp/jdime. All scenarios that did not fail are deleted from that directory after a run. The ones that failed will be preserved, the reason for the failure is written to a respective error.log in that directory.
