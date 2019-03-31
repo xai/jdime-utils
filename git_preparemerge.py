@@ -18,42 +18,138 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def get_merged_files(revs):
-    merged_files = GIT['diff', '--name-status', '--diff-filter=M',
-                       revs['left'], revs['right']]().splitlines()
-    return map(lambda x: x[2:], merged_files)
+    merged_files = []
+    skipped_files = {}
+    modified_lr = GIT['diff', '--name-status', '--diff-filter=AM',
+                   revs['left'] + '...' + revs['right']]().splitlines()
+    modified_rl = GIT['diff', '--name-status', '--diff-filter=AM',
+                   revs['right'] + '...' + revs['left']]().splitlines()
+    left_files = set()
+    right_files = set()
+    left_files_new = set()
+    right_files_new = set()
+    for line in modified_lr:
+        t, f = line.split('\t')[0:2]
+        left_files.add(f)
+        if t == 'A':
+            left_files_new.add(f)
+    for line in modified_rl:
+        t, f = line.split('\t')[0:2]
+        right_files.add(f)
+        if t == 'A':
+            right_files_new.add(f)
 
-def prepare_job(target, revs, file):
-    path = os.path.dirname(file)
+    renamed_lr = GIT['diff', '--name-status', '--diff-filter=R',
+                       revs['left'] + '...' + revs['right']]().splitlines()
+    renamed_rl = GIT['diff', '--name-status', '--diff-filter=R',
+                       revs['right'] + '...' + revs['left']]().splitlines()
+    left_renamed = {}
+    right_renamed = {}
+    for line in renamed_lr:
+        old, new = line.split('\t')[1:3]
+        left_renamed[new] = old
+        left_files.add(new)
+    for line in renamed_rl:
+        old, new = line.split('\t')[1:3]
+        right_renamed[new] = old
+        right_files.add(new)
 
-    for rev in STRATEGIES:
-        os.makedirs(os.path.join(target, rev, path), exist_ok=True)
-
-    for rev, commit in revs.items():
-        if rev == 'merge':
+    intersection = left_files.intersection(right_files)
+    for f in intersection:
+        if not f.endswith('.java'):
+            skipped_files[f] = "non-java file"
             continue
 
-        os.makedirs(os.path.join(target, rev, path), exist_ok=True)
-        try:
-            with open(os.path.join(target, rev, file), 'w') as targetfile:
-                targetfile.write(GIT['show', commit + ":" + file]())
-        except ProcessExecutionError:
-            os.remove(os.path.join(target, rev, file))
+        b = None
+        if f in left_renamed:
+            b = left_renamed[f]
+        if f in right_renamed:
+            if not b:
+                b = right_renamed[f]
+            else:
+                if b != right_renamed[f]:
+                    eprint("%s %s %s is a rename/rename conflict" %
+                           (revs["left"], revs["right"], f))
+                    skipped_files[f] = "rename/rename conflict"
+                    continue
 
-def write_job(writer, target, project, timestamp, revs, file):
+        if f in left_files_new or f in right_files_new:
+            if b:
+                # conflict on file level
+                eprint("%s %s %s is a add/rename conflict" %
+                       (revs["left"], revs["right"], f))
+                skipped_files[f] = "add/rename conflict"
+                continue
+        elif not b:
+            b = f
+
+        if not b:
+            eprint("%s %s %s is a two-way merge" %
+                   (revs["left"], revs["right"], f))
+
+        merged_files.append((f,b,f))
+
+    for f in left_files.union(right_files).union(left_renamed.keys() |
+                                                 set()).union(right_renamed.keys()
+                                                             | set()):
+        if f not in intersection:
+            skipped_files[f] = "fast-forward"
+            if not f.endswith('.java'):
+                skipped_files[f] += " + non-java file"
+
+    return (merged_files, skipped_files)
+
+def prepare_job(target, revs, lbr, noop=False):
+    l, b, r = lbr
+    lpath = os.path.dirname(l)
+
+    if not noop:
+        for rev in STRATEGIES:
+            os.makedirs(os.path.join(target, rev, lpath), exist_ok=True)
+
+    keys = ("left", "base", "right")
     inputfiles = []
-    for rev in revs.keys():
-        if rev == 'merge':
-            continue
+    for key, commit, filename in zip(keys, [ revs[key] if key in revs else None for key in keys ], lbr):
 
-        inputfile = os.path.join(target, rev, file)
-        if rev != 'base' or os.path.exists(inputfile):
+        if commit and filename:
+            inputfile = os.path.join(target, key, filename)
+            if not noop:
+                os.makedirs(os.path.dirname(inputfile), exist_ok=True)
+                try:
+                    with open(inputfile, 'w') as targetfile:
+                        targetfile.write(GIT['show', commit + ":" + filename]())
+                except ProcessExecutionError:
+                    os.remove(inputfile)
+
             inputfiles.append(inputfile)
-    outfile = os.path.join(target, STRATEGY, file)
-    cmd = 'jdime -eoe -log WARNING -m %s -o %s %s' % (STRATEGY,
-                                                      outfile,
-                                                      ' '.join(inputfiles))
+
+    # return (inputfiles, os.path.join(target, STRATEGY, l))
+    return (inputfiles, l)
+
+def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles, outputfile, reason=None):
+
+    if len(inputfiles) > 0:
+        mergetype = ("%d-way" % len(inputfiles))
+        outfile = os.path.join(target, STRATEGY, outputfile)
+
+        if jdimeopts:
+            jdimeopts = '-' + jdimeopts
+        else:
+            jdimeopts = ''
+
+        cmd = 'jdime -eoe -log WARNING -s -m %s -o %s %s %s' % (STRATEGY,
+                                                                outfile,
+                                                                jdimeopts,
+                                                                ' '.join(inputfiles))
+        strategies = ','.join(STRATEGIES)
+    else:
+        mergetype = "skipped"
+        cmd = reason
+        target = ""
+        strategies = ""
+
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
-                     file, ','.join(STRATEGIES), target, cmd])
+                     outputfile, mergetype, strategies, target, cmd])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -64,6 +160,9 @@ def main():
                         help='Strategies to be prepared, separated by comma',
                         type=str,
                         default='structured')
+    parser.add_argument('-j', '--jdimeopts',
+                        help='Additional options to pass to jdime',
+                        type=str)
     parser.add_argument('-n', '--noop',
                         help='Do not actually run',
                         action="store_true")
@@ -140,19 +239,26 @@ def main():
     revs['left'] = left
     try:
         revs['base'] = GIT['merge-base', left, right]().strip()
+        if revs['base'] == left or revs['base'] == right:
+            eprint("%s is a fast-forward merge" % mergecommit)
+            # return
     except ProcessExecutionError:
         # two-way merge
+        eprint("%s is a two-way merge" % mergecommit)
         pass
     revs['right'] = right
 
     timestamp = GIT['log', '--pretty=%ci', '-n1', mergecommit]().strip()
 
     writer = csv.writer(sys.stdout, delimiter=';')
-    for file in get_merged_files(revs):
-        if file.endswith('.java'):
-            if not args.noop:
-                prepare_job(target, revs, file)
-            write_job(writer, target, project, timestamp, revs, file)
+    merged_files, skipped_files = get_merged_files(revs)
+    for lbr in merged_files:
+        inputfiles, outputfile = prepare_job(target, revs, lbr, args.noop)
+        write_job(writer, target, project, timestamp, revs, args.jdimeopts,
+                  inputfiles, outputfile)
+    for f, reason in skipped_files.items():
+        write_job(writer, target, project, timestamp, revs, args.jdimeopts,
+                  [], f, reason)
 
 if __name__ == "__main__":
     main()
