@@ -8,18 +8,27 @@ import os
 import sys
 import tempfile
 import time
+import signal
 import statistics
+import psutil
 from plumbum import colors
 from plumbum import local
 from plumbum.cmd import grep
 from plumbum.commands.processes import ProcessExecutionError
 from xml.etree import ElementTree as ET
+from subprocess import TimeoutExpired
 
 
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
 COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'mergetype',
         'strategies', 'target', 'cmd']
+
+def kill(proc_pid):
+    process = psutil.Process(proc_pid)
+    for proc in process.children(recursive=True):
+        proc.kill()
+        process.kill()
 
 def get_merge_commits(before):
     if before:
@@ -72,6 +81,7 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
     file = job['file']
     target = job['target']
     mergetype = job['mergetype']
+    timeout = 1800
 
     fail = False
 
@@ -117,9 +127,22 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                 if os.path.exists(outfile):
                     os.remove(outfile)
                 t0 = time.time()
-                ret, stdout, stderr = local[exe][args].run(retcode=None)
-                t1 = time.time()
-                runtimes.append(t1 - t0)
+                # ret, stdout, stderr = local[exe][args].run(retcode=None)
+                p = local[exe][args].popen()
+                try:
+                    stdout, stderr = p.communicate(timeout=timeout)
+                    ret = p.returncode
+                    t1 = time.time()
+                    runtimes.append(t1 - t0)
+                except TimeoutExpired:
+                    kill(p.pid)
+                    stdout = ''
+                    stderr = ('Timeouted after %d seconds.\r\n' % (timeout)).encode("utf-8")
+                    ret = -5
+                    t1 = time.time()
+                    runtimes.append(t1 - t0)
+                    break
+
             runtime = statistics.median(runtimes)
 
             if ret >= 0 and ret <= 127:
@@ -198,7 +221,7 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                     err.write(scenario + '\r\n')
                     err.write('> %s\r\n' % ' '.join(cmd))
                     err.write(80 * '-' + '\r\n')
-                    err.writelines(stderr)
+                    err.writelines(stderr.decode("utf-8"))
                     err.write(80 * '-' + '\r\n')
 
     if prune and not fail:
