@@ -25,6 +25,8 @@ COLS = ['project',
         't_LinebasedStrategy',
         't_SemiStructuredStrategy',
         't_StructuredStrategy',
+        'loc_in',
+        'loc_out',
         'jdimeversion']
 
 def colorize(row):

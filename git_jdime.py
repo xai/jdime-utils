@@ -22,7 +22,7 @@ from subprocess import TimeoutExpired
 GIT = local['git']
 STRATEGY = '$$STRATEGY$$'
 COLS = ['project', 'timestamp', 'merge', 'left', 'right', 'file', 'mergetype',
-        'strategies', 'target', 'cmd']
+        'strategies', 'target', 'cmd', 'loc_in']
 
 def kill(proc_pid):
     process = psutil.Process(proc_pid)
@@ -105,6 +105,8 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                          '',
                          '',
                          '',
+                         job["loc_in"],
+                         0,
                          jdimeversion])
         return
 
@@ -151,6 +153,7 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                 clines = int(tree.find('./mergescenariostatistics/lineStatistics').attrib['numOccurInConflict'])
                 ctokens = int(tree.find('./mergescenariostatistics/tokenStatistics').attrib['numOccurInConflict'])
                 parsed_conflicts = count_conflicts(outfile)
+                loc_out = int(local['wc']['-l', outfile]().split(' ')[0])
                 xmlruntimes={'merge': None,
                              'parse': None,
                              'semistructure': None,
@@ -189,6 +192,8 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                                      xmlruntimes['LinebasedStrategy'],
                                      xmlruntimes['SemiStructuredStrategy'],
                                      xmlruntimes['StructuredStrategy'],
+                                     job["loc_in"],
+                                     loc_out,
                                      jdimeversion])
             else:
                 fail = True
@@ -214,6 +219,8 @@ def run(job, prune, writer, runs=1, srcfile=None, noop=False):
                                      '',
                                      '',
                                      '',
+                                     '',
+                                     job["loc_in"],
                                      '',
                                      jdimeversion])
                 with open(errorlog, 'a') as err:
@@ -324,6 +331,8 @@ def main():
                           't_LinebasedStrategy',
                           't_SemiStructuredStrategy',
                           't_StructuredStrategy',
+                          'loc_in',
+                          'loc_out',
                           'jdimeversion']
             writer.writerow(outputcols)
     if args.output:

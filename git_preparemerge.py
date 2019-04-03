@@ -109,6 +109,7 @@ def prepare_job(target, revs, lbr, noop=False):
 
     keys = ("left", "base", "right")
     inputfiles = []
+    loc_in = 0
     for key, commit, filename in zip(keys, [ revs[key] if key in revs else None for key in keys ], lbr):
 
         if commit and filename:
@@ -118,15 +119,17 @@ def prepare_job(target, revs, lbr, noop=False):
                 try:
                     with open(inputfile, 'w') as targetfile:
                         targetfile.write(GIT['show', commit + ":" + filename]())
+                    loc_in += int(local['wc']['-l', inputfile]().split(' ')[0])
                 except ProcessExecutionError:
                     os.remove(inputfile)
 
             inputfiles.append(inputfile)
 
     # return (inputfiles, os.path.join(target, STRATEGY, l))
-    return (inputfiles, l)
+    return (inputfiles, l, loc_in)
 
-def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles, outputfile, reason=None):
+def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles,
+              outputfile, loc_in, reason=None):
 
     if len(inputfiles) > 0:
         mergetype = ("%d-way" % len(inputfiles))
@@ -149,7 +152,7 @@ def write_job(writer, target, project, timestamp, revs, jdimeopts, inputfiles, o
         strategies = ""
 
     writer.writerow([project, timestamp, revs['merge'], revs['left'], revs['right'],
-                     outputfile, mergetype, strategies, target, cmd])
+                     outputfile, mergetype, strategies, target, cmd, loc_in])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -253,12 +256,12 @@ def main():
     writer = csv.writer(sys.stdout, delimiter=';')
     merged_files, skipped_files = get_merged_files(revs)
     for lbr in merged_files:
-        inputfiles, outputfile = prepare_job(target, revs, lbr, args.noop)
+        inputfiles, outputfile, loc_in = prepare_job(target, revs, lbr, args.noop)
         write_job(writer, target, project, timestamp, revs, args.jdimeopts,
-                  inputfiles, outputfile)
+                  inputfiles, outputfile, loc_in)
     for f, reason in skipped_files.items():
         write_job(writer, target, project, timestamp, revs, args.jdimeopts,
-                  [], f, reason)
+                  [], f, 0, reason)
 
 if __name__ == "__main__":
     main()
